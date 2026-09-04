@@ -82,10 +82,9 @@ OZONE combines studio-quality music playback with an ultra-responsive Discord Co
    OWNER_IDS=your_discord_id
    BOT_PREFIX=^
    MONGODB_URL=mongodb://127.0.0.1:27017/ozone
-   LAVALINK_URL=localhost:2333
-   LAVALINK_PASSWORD=your_lavalink_password
    GROQ_API_KEY=your_groq_api_key
    ```
+   *(Lavalink v4 public clustering works out-of-the-box, no local Lavalink server required!)*
 
 4. **Verify Syntax & Quality**:
    ```bash
