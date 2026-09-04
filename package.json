@@ -8,7 +8,8 @@
   "scripts": {
     "start": "node ozone.js",
     "dev": "node --watch ozone.js",
-    "check": "node scripts/check.js"
+    "check": "node scripts/check.js",
+    "verify": "node scripts/verify_all.js"
   },
   "engines": {
     "node": ">=20.18.1"
