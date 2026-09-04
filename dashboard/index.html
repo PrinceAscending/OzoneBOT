@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0A1733" />
+  <title>OZONE — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230A1733'/><circle cx='50' cy='50' r='38' fill='none' stroke='%231A3060' stroke-width='5'/><circle cx='50' cy='50' r='28' fill='none' stroke='%239FD4FF' stroke-opacity='0.5' stroke-width='4' stroke-dasharray='5 6'/><circle cx='50' cy='50' r='17' fill='none' stroke='%239FD4FF' stroke-width='6'/><text x='50' y='61' text-anchor='middle' font-size='30' font-weight='700' font-family='Arial' fill='%23EAF2FF'>O</text></svg>" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40" width="40" height="40" focusable="false">
+            <circle cx="20" cy="20" r="18" fill="none" stroke="#1A3060" stroke-width="1.5" />
+            <circle cx="20" cy="20" r="13.5" fill="none" stroke="#9FD4FF" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="2.5 3" />
+            <circle cx="20" cy="20" r="9" fill="none" stroke="#9FD4FF" stroke-width="2" />
+            <text x="20" y="24.5" text-anchor="middle" font-family="Chakra Petch, sans-serif" font-size="12" font-weight="700" fill="#EAF2FF">O</text>
+          </svg>
+        </span>
+        <span class="brand-name">OZONE</span>
+      </div>
+      <nav class="topnav">
+        <button class="nav-btn active" data-view="overview">Overview</button>
+        <button class="nav-btn" data-view="servers">My Servers</button>
+        <button class="nav-btn hidden" data-view="profile" id="nav-profile">Profile</button>
+        <button class="nav-btn" data-view="chat">AI Chat</button>
+        <button class="nav-btn" data-view="dev">Developer</button>
+        <button class="nav-btn hidden" data-view="admin" id="nav-admin">Admin</button>
+      </nav>
+      <div class="topbar-right">
+        <button id="theme-toggle" class="btn btn-ghost theme-toggle" title="Switch theme" aria-label="Switch theme">☾</button>
+        <button id="login-btn" class="btn btn-primary hidden">Login with Discord</button>
+        <div id="user-chip" class="user-chip hidden" title="Your account">
+          <img id="chip-avatar" class="chip-avatar" alt="Your avatar" />
+          <span id="chip-name" class="chip-name">—</span>
+          <span class="chip-caret">▾</span>
+          <div id="chip-menu" class="chip-menu hidden">
+            <button id="chip-profile" data-action="profile">👤 My Profile</button>
+            <button id="chip-logout" class="danger" data-action="logout">🚪 Logout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track" id="ticker-track">◉ OZONE RADIO · ON AIR · 59 COMMANDS · ONE SIGNAL · 24/7 BROADCAST · ◉ OZONE RADIO · ON AIR · 59 COMMANDS · ONE SIGNAL · 24/7 BROADCAST ·</div>
+  </div>
+
+  <main class="container">
+    <!-- Overview -->
+    <section id="view-overview" class="view">
+      <div class="hero">
+        <div class="hero-eyebrow mono">MUSIC · AI · SERVER TOOLS — ONE BOT</div>
+        <h1 class="hero-title">OZONE<span class="hero-dot">.</span></h1>
+        <p class="hero-sub">The station that's always on air in your server. 59 commands, one signal.</p>
+        <div class="hero-badges">
+          <span id="stat-status" class="badge badge-loading">Connecting…</span>
+          <span id="stat-ping" class="badge">— ms</span>
+          <span id="stat-cluster" class="badge">Cluster 0</span>
+        </div>
+      </div>
+
+      <div class="ozone-band" aria-hidden="true">
+        <div class="ozone-band-field"></div>
+        <div class="ozone-band-core"></div>
+        <div class="ozone-wordmark">OZONE<span class="ozone-wordmark-tag mono">RADIO · ON AIR</span></div>
+      </div>
+
+      <div class="grid stats-grid">
+        <div class="card stat-card card-hover"><div class="stat-label">Guilds</div><div class="stat-value" id="stat-guilds">—</div></div>
+        <div class="card stat-card card-hover"><div class="stat-label">Users</div><div class="stat-value" id="stat-users">—</div></div>
+        <div class="card stat-card card-hover"><div class="stat-label">Commands</div><div class="stat-value" id="stat-commands">—</div></div>
+        <div class="card stat-card card-hover"><div class="stat-label">Active Players</div><div class="stat-value" id="stat-players">—</div></div>
+        <div class="card stat-card card-hover"><div class="stat-label">AI Mode Users</div><div class="stat-value" id="stat-ai">—</div></div>
+        <div class="card stat-card card-hover"><div class="stat-label">Uptime</div><div class="stat-value" id="stat-uptime">—</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Servers</h2>
+          <span class="muted" id="guild-count"></span>
+        </div>
+        <div class="search-row">
+          <input type="search" id="guild-search" class="input" placeholder="Search servers…" aria-label="Search servers" autocomplete="off" />
+        </div>
+        <div id="guild-list" class="guild-list">
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </div>
+        <div id="guild-empty" class="empty hidden"><span class="empty-icon">🏠</span>No servers yet. Invite OZONE to a server to get started.</div>
+      </div>
+    </section>
+
+    <!-- My Servers (OAuth) -->
+    <section id="view-servers" class="view hidden">
+      <div class="card">
+        <div class="card-header">
+          <h2>In Voice With OZONE</h2>
+          <span class="muted">Live read-only view — updates in real time from the voice channel</span>
+        </div>
+        <div id="vc-list" class="guild-list">
+          <div class="skeleton"></div>
+        </div>
+        <div id="vc-empty" class="empty hidden"><span class="empty-icon">🎧</span>Hop into a voice channel where OZONE is playing — this list updates live.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Favorites</h2>
+          <span class="muted">Songs you liked from the player</span>
+        </div>
+        <div id="fav-list" class="fav-grid">
+          <div class="skeleton"></div>
+        </div>
+        <div id="fav-empty" class="empty hidden"><span class="empty-icon">❤️</span>Heart a track while it plays and it lands here.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>My Servers</h2>
+          <span class="muted">Servers you manage where OZONE is present</span>
+        </div>
+        <div id="my-guild-list" class="guild-list">
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </div>
+        <div id="my-guild-empty" class="empty hidden"><span class="empty-icon">🏠</span>OZONE isn't in any servers yet. Invite it and the broadcast begins.</div>
+      </div>
+
+      <div id="guild-detail" class="card hidden">
+        <div class="card-header">
+          <h2 id="detail-name">Server</h2>
+          <button id="detail-back" class="btn btn-ghost">← Back</button>
+        </div>
+        <div class="detail-grid">
+          <div class="detail-item"><span class="muted">Prefix</span><span id="detail-prefix" class="mono">—</span></div>
+          <div class="detail-item"><span class="muted">Members</span><span id="detail-members">—</span></div>
+          <div class="detail-item"><span class="muted">Owner ID</span><span id="detail-owner" class="mono">—</span></div>
+          <div class="detail-item"><span class="muted">Player</span><span id="detail-player">—</span></div>
+        </div>
+        <div id="detail-nowplaying" class="nowplaying hidden">
+          <div class="np-art" id="np-art">♪</div>
+          <div>
+            <div class="np-title" id="np-title">—</div>
+            <div class="np-author muted" id="np-author">—</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Now Playing (read-only) -->
+    <section id="view-player" class="view hidden">
+      <button id="player-back" class="btn btn-ghost">← Back to Servers</button>
+
+      <div class="card player-card">
+        <div class="player-console">
+          <div class="player-art-frame" id="player-art">♪</div>
+
+          <div class="player-meta">
+            <div class="eyebrow mono">NOW PLAYING</div>
+            <div class="player-title" id="player-title">—</div>
+            <div class="player-author" id="player-author">—</div>
+            <div class="player-server mono" id="player-server"></div>
+            <div class="console-actions">
+              <button id="btn-heart" class="heart-btn" title="Save to favorites" aria-pressed="false" aria-label="Save to favorites">♡</button>
+              <div class="eq" id="eq"><span></span><span></span><span></span><span></span><span></span></div>
+            </div>
+          </div>
+
+          <div class="player-rail" aria-hidden="true">
+            <span class="rail-freq mono">88.8 FM</span>
+            <span class="rail-signal mono">SIGNAL LOCKED</span>
+            <span class="rail-bars"><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
+        </div>
+
+        <div class="player-progress" role="group" aria-label="Track progress">
+          <span id="player-pos" class="mono" aria-live="off">0:00</span>
+          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="player-progress-track"><div class="progress-fill" id="player-progress-fill"></div></div>
+          <span id="player-dur" class="mono" aria-live="off">0:00</span>
+        </div>
+
+        <div class="player-actions">
+          <button id="btn-lyrics" class="btn btn-ghost btn-sm">Lyrics</button>
+        </div>
+      </div>
+
+      <p id="player-error" class="error hidden" role="alert" aria-live="assertive"></p>
+
+      <div id="lyrics-wrap" class="card hidden">
+        <div class="card-header">
+          <h2>Lyrics</h2>
+          <button id="btn-lyrics-close" class="btn btn-ghost btn-sm">Close</button>
+        </div>
+        <div id="lyrics-panel" class="lyrics-panel">Loading…</div>
+      </div>
+
+      <div class="split-grid">
+        <div class="card">
+          <div class="card-header">
+            <h2>Up Next</h2>
+            <span class="muted" id="queue-count"></span>
+          </div>
+          <div id="player-queue" class="tracklist">
+            <div class="empty"><span class="empty-icon">🎵</span>The queue is clear. Send a song up.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Recently Played</h2>
+            <span class="muted">Last 10 tracks in this session</span>
+          </div>
+          <div id="player-history" class="tracklist">
+            <div class="empty"><span class="empty-icon">🕘</span>No signal yet — start a track and the log fills in.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Top Listeners</h2>
+          <span class="muted">Time actually spent on air in this server</span>
+        </div>
+        <div id="top-listeners" class="tracklist">
+          <div class="skeleton"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI Chat -->
+    <section id="view-chat" class="view hidden">
+      <div class="card">
+        <div class="card-header">
+          <h2>OZONE AI</h2>
+          <span class="muted">Same brain as Discord — Hinglish, music expert, zero filter</span>
+        </div>
+        <div id="chat-locked" class="empty hidden"><span class="empty-icon">🔒</span>Tune in: log in with Discord to talk to OZONE AI.</div>
+        <div id="chat-shell" class="chat-shell hidden">
+          <div class="chat-quick">
+            <button data-q="Recommend a song for a late night drive">🌙 Late night drive</button>
+            <button data-q="Best Bollywood songs of all time?">🎬 Bollywood classics</button>
+            <button data-q="How do I use the music commands?">🎛 Music commands</button>
+            <button data-q="Roast me, I can take it">🔥 Roast me</button>
+          </div>
+          <div id="chat-messages" class="chat-messages"></div>
+          <form id="chat-form" class="chat-input-row">
+            <input type="text" id="chat-input" class="input" placeholder="Ask OZONE AI anything…" autocomplete="off" />
+            <button type="submit" class="btn btn-primary">Send</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Developer (Lanyard presence) -->
+    <section id="view-dev" class="view hidden">
+      <div class="card dev-hero">
+        <div class="dev-avatar-wrap">
+          <img id="dev-avatar" class="dev-avatar" alt="Owner avatar" />
+        </div>
+        <div class="dev-hero-info">
+          <div class="eyebrow">STATION OWNER</div>
+          <h1 id="dev-name" class="dev-name">—</h1>
+          <div id="dev-username" class="dev-username mono">—</div>
+          <div class="profile-badges">
+            <span id="dev-status" class="badge badge-loading">Connecting…</span>
+            <span id="dev-id" class="badge">—</span>
+          </div>
+          <p class="dev-note muted">Realtime presence via Lanyard — refreshed every 15 seconds while this tab is open.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Connected Accounts</h2>
+          <span class="muted">Spotify, YouTube, Steam &amp; more — from the owner's Discord profile</span>
+        </div>
+        <div id="dev-conn" class="conn-grid">
+          <div class="skeleton"></div>
+        </div>
+        <div id="dev-conn-empty" class="empty hidden"><span class="empty-icon">🔌</span>No accounts linked yet. Discord → <strong>User Settings → Connections</strong>.</div>
+        <p id="dev-conn-stale" class="muted hidden">⚠️ Connections appear after the owner logs in to the dashboard once.</p>
+      </div>
+
+      <div id="dev-spotify-wrap" class="card hidden">
+        <div class="card-header">
+          <h2>Now Playing on Spotify</h2>
+          <span id="dev-spotify-source" class="muted"></span>
+        </div>
+        <div class="dev-spotify">
+          <div id="dev-spotify-art" class="dev-spotify-art">♪</div>
+          <div class="dev-spotify-info">
+            <div id="dev-spotify-title" class="dev-spotify-title">—</div>
+            <div id="dev-spotify-artist" class="dev-spotify-artist">—</div>
+            <div id="dev-spotify-album" class="dev-spotify-album muted">—</div>
+            <div class="player-progress">
+              <span id="dev-spotify-pos" class="mono">0:00</span>
+              <div class="progress-track"><div class="progress-fill" id="dev-spotify-fill"></div></div>
+              <span id="dev-spotify-dur" class="mono">0:00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Activities</h2>
+          <span class="muted" id="dev-activity-count"></span>
+        </div>
+        <div id="dev-activities" class="list">
+          <div class="skeleton"></div>
+        </div>
+        <div id="dev-activities-empty" class="empty hidden"><span class="empty-icon">📡</span>No active activities. Presence data comes from Lanyard.</div>
+      </div>
+    </section>
+
+    <!-- Profile -->
+    <section id="view-profile" class="view hidden">
+      <div id="profile-locked" class="empty"><span class="empty-icon">🔒</span>Login with Discord to manage your profile.</div>
+
+      <div id="profile-shell" class="hidden">
+        <div class="card profile-hero">
+          <div class="profile-avatar-wrap">
+            <img id="profile-avatar" class="profile-avatar" alt="Your Discord avatar" />
+          </div>
+          <div class="profile-hero-info">
+            <h1 id="profile-display" class="profile-name">—</h1>
+            <div id="profile-username" class="profile-username mono">—</div>
+            <div class="profile-badges">
+              <span id="profile-verified" class="badge badge-online">✓ Connected via Discord</span>
+              <span id="profile-admin" class="badge hidden">👑 Owner · Admin</span>
+            </div>
+            <p id="profile-bio" class="profile-bio muted">No bio yet — write something about yourself.</p>
+          </div>
+        </div>
+
+        <div class="grid stats-grid">
+          <div class="card stat-card"><div class="stat-label">Favorites</div><div class="stat-value" id="profile-stat-favs">—</div></div>
+          <div class="card stat-card"><div class="stat-label">Servers Managed</div><div class="stat-value" id="profile-stat-guilds">—</div></div>
+          <div class="card stat-card"><div class="stat-label">Voice With OZONE</div><div class="stat-value" id="profile-stat-vcs">—</div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Connected Accounts</h2>
+            <span class="muted">Spotify, YouTube, Steam &amp; more — pulled from your Discord profile</span>
+          </div>
+          <div id="profile-conn" class="conn-grid">
+            <div class="skeleton"></div>
+          </div>
+          <div id="profile-conn-empty" class="empty hidden"><span class="empty-icon">🔌</span>No accounts linked yet. Discord → <strong>User Settings → Connections</strong>.</div>
+          <p id="profile-conn-stale" class="muted hidden">⚠️ Connections are from an older login — log out and back in to refresh them.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>About You</h2>
+            <span class="muted">Your display name and bio</span>
+          </div>
+          <form id="profile-form" class="stack-form">
+            <label for="profile-display-input">Display name</label>
+            <input type="text" id="profile-display-input" class="input" maxlength="32" placeholder="Your display name" autocomplete="off" />
+            <label for="profile-bio-input">Bio</label>
+            <textarea id="profile-bio-input" class="input" rows="3" maxlength="200" placeholder="Tell us about yourself…"></textarea>
+            <div class="form-row">
+              <span id="profile-save-msg" class="muted"></span>
+              <button type="submit" class="btn btn-primary">Save Profile</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Discord Account</h2>
+            <span class="muted">Your logo and identity are managed on Discord</span>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="muted">User ID</span>
+              <span id="profile-id" class="mono">—</span>
+              <button id="profile-copy-id" class="btn btn-ghost btn-sm">Copy ID</button>
+            </div>
+            <div class="detail-item">
+              <span class="muted">Username</span>
+              <span id="profile-username-2" class="mono">—</span>
+            </div>
+            <div class="detail-item">
+              <span class="muted">Avatar</span>
+              <span class="muted">Logo shown from your Discord profile</span>
+              <a id="profile-discord-link" href="https://discord.com/app" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">Edit on Discord →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Admin -->
+    <section id="view-admin" class="view hidden">
+      <div id="admin-locked" class="card admin-login">
+        <h2>Admin Access</h2>
+        <p class="muted">Admin access is granted via the secret admin URL, or automatically when the bot owner logs in with Discord.</p>
+      </div>
+
+      <div id="admin-panel" class="hidden">
+        <div class="card">
+          <div class="card-header">
+            <h2>Command Stats</h2>
+            <span class="muted" id="cmd-stats-total"></span>
+          </div>
+          <div id="admin-cmdstats" class="list">
+            <div class="skeleton"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Active Players</h2>
+            <button id="admin-refresh" class="btn btn-ghost btn-sm">Refresh</button>
+          </div>
+          <div id="admin-players" class="list">
+            <div class="skeleton"></div>
+          </div>
+          <div class="danger-row" style="margin-top: var(--sp-3)">
+            <button id="admin-stop-all" class="btn btn-danger btn-sm">Stop All Players</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>AI Mode Users</h2></div>
+          <div id="admin-ai" class="list">
+            <div class="skeleton"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>Blacklist</h2></div>
+          <form id="blacklist-form" class="inline-form">
+            <label for="blacklist-user" class="visually-hidden">User ID</label>
+            <input type="text" id="blacklist-user" class="input" placeholder="User ID" required />
+            <button type="submit" class="btn btn-warn btn-sm">Toggle Blacklist</button>
+          </form>
+          <div id="admin-blacklist" class="list" style="margin-top: var(--sp-3)"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>Broadcast</h2></div>
+          <form id="broadcast-form" class="stack-form">
+            <label for="broadcast-msg" class="visually-hidden">Broadcast message</label>
+            <textarea id="broadcast-msg" class="input" rows="3" placeholder="Message to send to every server..." required></textarea>
+            <button type="submit" class="btn btn-primary">Send to All Servers</button>
+          </form>
+          <p id="broadcast-result" class="muted"></p>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>Bot Presence</h2></div>
+          <form id="presence-form" class="inline-form">
+            <label for="presence-text" class="visually-hidden">Status text</label>
+            <input type="text" id="presence-text" class="input" placeholder="Status text" required />
+            <label for="presence-type" class="visually-hidden">Status type</label>
+            <select id="presence-type" class="input select">
+              <option value="PLAYING">Playing</option>
+              <option value="LISTENING">Listening to</option>
+              <option value="WATCHING">Watching</option>
+              <option value="COMPETING">Competing in</option>
+              <option value="STREAMING">Streaming</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Set</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>Direct Message</h2></div>
+          <form id="dm-form" class="stack-form">
+            <label for="dm-user" class="visually-hidden">User ID</label>
+            <input type="text" id="dm-user" class="input" placeholder="User ID" required />
+            <label for="dm-msg" class="visually-hidden">Message</label>
+            <textarea id="dm-msg" class="input" rows="2" placeholder="Message..." required></textarea>
+            <button type="submit" class="btn btn-primary">Send DM</button>
+          </form>
+          <p id="dm-result" class="muted"></p>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>Guild Control</h2></div>
+          <form id="leave-form" class="inline-form">
+            <label for="leave-guild" class="visually-hidden">Guild to leave</label>
+            <select id="leave-guild" class="input select"></select>
+            <button type="submit" class="btn btn-danger btn-sm">Leave Guild</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>Live Logs</h2></div>
+          <pre id="admin-logs" class="logs">Loading…</pre>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2>Danger Zone</h2></div>
+          <div class="danger-row">
+            <button id="admin-restart" class="btn btn-danger">Restart Bot</button>
+            <button id="admin-reload" class="btn btn-warn">Reload Commands</button>
+            <span id="admin-action-msg" class="muted"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>OZONE RADIO</span>
+    <span class="muted mono" id="footer-hint">⌨ SPACE play/pause · ←/→ seek · N skip</span>
+    <span class="muted" id="footer-status"></span>
+  </footer>
+
+  <div class="toast-wrap" id="toast-wrap" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
