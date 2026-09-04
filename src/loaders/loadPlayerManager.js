@@ -1,6 +1,6 @@
 
 
-const { Kazagumo, Plugins, KazagumoTrack } = require("kazagumo");
+const { Kazagumo, Plugins, KazagumoTrack, KazagumoPlayer } = require("kazagumo");
 const { Connectors, LoadType } = require("shoukaku");
 
 const searchEngines = {
@@ -27,6 +27,10 @@ module.exports = function loadPlayerManager(client) {
     client.config.nodes,
     client.config.node_options
   );
+
+  KazagumoPlayer.prototype.search = function (query, options = {}) {
+    return this.kazagumo.search(query, { ...options, nodeName: this.node?.name });
+  };
 
   manager.shoukaku.on("ready", (name, resumed) => {
     const node = manager.shoukaku.nodes.get(name);

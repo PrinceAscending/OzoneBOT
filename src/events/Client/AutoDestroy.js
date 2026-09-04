@@ -25,6 +25,9 @@ module.exports = {
     const guildId = newState.guild.id;
     const player = client.manager.players.get(guildId);
     const guild = client.guilds.cache.get(guildId);
+    const botId = client.user.id;
+    const botMember = newState.guild.members.cache.get(botId);
+    const botVoiceChannel = botMember?.voice.channel;
 
     // VoiceRole auto-assign on VC join / auto-remove on VC leave
     const member = newState.member || oldState.member;
