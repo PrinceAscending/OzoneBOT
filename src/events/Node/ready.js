@@ -6,16 +6,24 @@ module.exports = {
   name: "ready",
   run: async (client, name) => {
     client.logger.log(`Lavalink "${name}" connected.`, "ready");
-    client.logger.log("Auto Reconnect Collecting player 24/7 data", "log");
 
-    const maindata = await db.find();
-    client.logger.log(
-      `Auto Reconnect found ${maindata.length
-        ? `${maindata.length} queue${maindata.length > 1 ? "s" : ""}. Resuming all auto reconnect queue`
-        : "0 queue"
-      }`,
-      "ready",
-    );
+    // In multi-node setups, each node fires 'ready'. Guard against parallel loops.
+    if (client._isAutoReconnecting) {
+      return;
+    }
+    client._isAutoReconnecting = true;
+
+    try {
+      client.logger.log("Auto Reconnect Collecting player 24/7 data", "log");
+
+      const maindata = await db.find();
+      client.logger.log(
+        `Auto Reconnect found ${maindata.length
+          ? `${maindata.length} queue${maindata.length > 1 ? "s" : ""}. Resuming all auto reconnect queue`
+          : "0 queue"
+        }`,
+        "ready",
+      );
 
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -147,9 +155,11 @@ module.exports = {
             `Auto Reconnect: Failed to reconnect for guild ${data.Guild}: ${error.message}`,
             "error"
           );
-          console.error(`[Auto Reconnect Error]`, error);
         }
       }
     }
+  } finally {
+    client._isAutoReconnecting = false;
+  }
   },
 };

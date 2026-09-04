@@ -80,23 +80,31 @@ const config = {
       }
     }
 
+    const isLocal = (url = "") => url.includes("localhost") || url.includes("127.0.0.1");
+
     const primary = {
-      name: process.env.LAVALINK_NAME || "Primary",
+      name: process.env.LAVALINK_NAME || "Amane-AjieDev-Primary",
       url: process.env.LAVALINK_URL || "lavalinkv4.serenetia.com:443",
-      auth: process.env.LAVALINK_PASSWORD || "https://dsc.gg/ajidevserver",
-      secure: boolean(process.env.LAVALINK_SECURE, true),
+      auth: process.env.LAVALINK_PASSWORD || "https://seretia.link/discord",
+      secure: boolean(process.env.LAVALINK_SECURE, !isLocal(process.env.LAVALINK_URL)),
     };
 
     const publicNodes = [
       primary,
       {
-        name: "Lavalink-V4-Backup-1",
+        name: "AneFaiz-MilloHost",
         url: "lava-v4.millohost.my.id:443",
         auth: "https://discord.gg/mjS5J2K3ep",
         secure: true,
       },
       {
-        name: "Lavalink-V4-Backup-2",
+        name: "Kasawa-TH",
+        url: "lava2.kasawa.pro:2334",
+        auth: "youshallnotpass",
+        secure: false,
+      },
+      {
+        name: "AjieDev-Backup",
         url: "lava-v4.ajieblogs.eu.org:443",
         auth: "https://dsc.gg/ajidevserver",
         secure: true,
