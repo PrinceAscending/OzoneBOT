@@ -42,48 +42,59 @@ module.exports = function loadPlayerManager(client) {
   manager.defaultSearchEngine = client.config.node_source;
 
   manager.search = async function (query, options = {}) {
-    // Honor an explicit nodeName (player.search always passes the player's own
-    // node); otherwise pick the first CONNECTED node, falling back to any node.
-    let node = options.nodeName ? this.shoukaku.nodes.get(options.nodeName) : null;
-    if (!node) {
-      const nodes = [...this.shoukaku.nodes.values()];
-      node = nodes.find((n) => n.state === 1) || nodes[0];
+    const allNodes = [...this.shoukaku.nodes.values()];
+    const connectedNodes = allNodes
+      .filter((n) => n.state === 1)
+      .sort((a, b) => (a.stats?.players || 0) - (b.stats?.players || 0));
+
+    // Build ordered list of candidate nodes to attempt
+    const candidateNodes = [];
+    if (options.nodeName) {
+      const requestedNode = this.shoukaku.nodes.get(options.nodeName);
+      if (requestedNode) candidateNodes.push(requestedNode);
     }
-    if (!node) return { type: "SEARCH", tracks: [] };
+    for (const n of connectedNodes) {
+      if (!candidateNodes.some((c) => c.name === n.name)) {
+        candidateNodes.push(n);
+      }
+    }
+    if (candidateNodes.length === 0 && allNodes.length > 0) {
+      candidateNodes.push(allNodes[0]);
+    }
+    if (candidateNodes.length === 0) return { type: "SEARCH", tracks: [] };
 
     const isUrl = /^https?:\/\//.test(query);
+    let resolvedQuery = query;
 
-    if (isUrl) {
-      const directRes = await node.rest.resolve(query).catch(() => null);
-      if (directRes && directRes.loadType !== LoadType.ERROR) {
-        return processSearchResult(directRes, options.requester);
-      }
-
-      if (query.includes('youtube.com') || query.includes('youtu.be')) {
-        // Only extract a video id from real YouTube URLs: a `v=` query param
-        // (watch URLs) or a youtu.be/<id> path. The old `(?:v=|\/)` pattern
-        // could match any 11-char path segment of a non-YouTube URL.
-        const videoId =
-          query.match(/[?&]v=([a-zA-Z0-9_-]{11})(?:&|#|$)/)?.[1] ||
-          query.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/)?.[1];
-        if (videoId) {
-          query = `intitle:${videoId}`;
-        }
+    if (isUrl && (query.includes("youtube.com") || query.includes("youtu.be"))) {
+      const videoId =
+        query.match(/[?&]v=([a-zA-Z0-9_-]{11})(?:&|#|$)/)?.[1] ||
+        query.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/)?.[1];
+      if (videoId) {
+        resolvedQuery = `intitle:${videoId}`;
       }
     }
 
-    // Primary engine first, then fallbacks — never including the primary again
-    // (the old Set-based dedupe kept the default engine in the list, so it was
-    // searched twice).
     const primaryEngine = options.engine || this.defaultSearchEngine;
-    const searchEngineList = [primaryEngine, ...fallbackEngines.filter((engine) => engine !== primaryEngine)];
+    const searchEngineList = isUrl
+      ? [null]
+      : [primaryEngine, ...fallbackEngines.filter((engine) => engine !== primaryEngine)];
 
-    for (const engine of searchEngineList) {
-      const searchQuery = `${engine}:${query}`;
-      const res = await node.rest.resolve(searchQuery).catch(() => null);
+    for (const node of candidateNodes) {
+      if (node.state !== 1 && candidateNodes.length > 1 && candidateNodes.indexOf(node) === 0) {
+        continue;
+      }
 
-      if (res && res.loadType !== LoadType.ERROR && res.data) {
-        return processSearchResult(res, options.requester);
+      for (const engine of searchEngineList) {
+        const searchQuery = engine ? `${engine}:${resolvedQuery}` : resolvedQuery;
+        const res = await node.rest.resolve(searchQuery).catch(() => null);
+
+        if (res && res.loadType !== LoadType.ERROR && res.data) {
+          const result = processSearchResult(res, options.requester);
+          if (result.tracks && result.tracks.length > 0) {
+            return result;
+          }
+        }
       }
     }
 

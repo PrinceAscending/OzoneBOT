@@ -60,6 +60,11 @@ module.exports = {
       );
       invalidateUserPref(interaction.user.id);
 
+      const activePlayer = client.manager?.players?.get(interaction.guildId);
+      if (activePlayer) {
+        activePlayer.data?.set("sessionSource", selectedSource);
+      }
+
       const successDisplay = new TextDisplayBuilder()
         .setContent(`**${client.emoji.check} Your preferred music source has been set to \`${selectedSourceName}\`**`);
 
@@ -113,6 +118,11 @@ module.exports = {
         );
         invalidateUserPref(message.author.id);
 
+        const activePlayer = client.manager?.players?.get(message.guild?.id);
+        if (activePlayer) {
+          activePlayer.data?.set("sessionSource", selectedSource);
+        }
+
         const successDisplay = new TextDisplayBuilder()
           .setContent(`**${client.emoji.check} Your preferred music source has been set to \`${selectedSourceName}\`**`);
 
@@ -164,6 +174,11 @@ module.exports = {
             { upsert: true, returnDocument: "after" }
           );
           invalidateUserPref(message.author.id);
+
+          const activePlayer = client.manager?.players?.get(message.guild?.id);
+          if (activePlayer) {
+            activePlayer.data?.set("sessionSource", selectedSource);
+          }
 
           const successDisplay = new TextDisplayBuilder()
             .setContent(`**${client.emoji.check} Your preferred music source has been set to \`${selectedSourceName}\`**`);

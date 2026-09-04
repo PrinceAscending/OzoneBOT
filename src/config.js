@@ -70,19 +70,55 @@ const config = {
     cmdrun: process.env.COMMAND_WEBHOOK_URL || "",
   },
 
-  nodes: [{
-    name: process.env.LAVALINK_NAME || "Primary",
-    url: process.env.LAVALINK_URL || "localhost:2333",
-    auth: process.env.LAVALINK_PASSWORD || "",
-    secure: boolean(process.env.LAVALINK_SECURE),
-  }],
+  nodes: (() => {
+    if (process.env.LAVALINK_NODES) {
+      try {
+        const parsed = JSON.parse(process.env.LAVALINK_NODES);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn("[config] Failed to parse LAVALINK_NODES JSON:", e.message);
+      }
+    }
+
+    const primary = {
+      name: process.env.LAVALINK_NAME || "Primary",
+      url: process.env.LAVALINK_URL || "lavalinkv4.serenetia.com:443",
+      auth: process.env.LAVALINK_PASSWORD || "https://dsc.gg/ajidevserver",
+      secure: boolean(process.env.LAVALINK_SECURE, true),
+    };
+
+    const publicNodes = [
+      primary,
+      {
+        name: "Lavalink-V4-Backup-1",
+        url: "lava-v4.millohost.my.id:443",
+        auth: "https://discord.gg/mjS5J2K3ep",
+        secure: true,
+      },
+      {
+        name: "Lavalink-V4-Backup-2",
+        url: "lava-v4.ajieblogs.eu.org:443",
+        auth: "https://dsc.gg/ajidevserver",
+        secure: true,
+      },
+    ];
+
+    // Deduplicate by URL
+    const seen = new Set();
+    return publicNodes.filter((n) => {
+      const key = `${n.url}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })(),
 
   node_options: {
-    moveOnDisconnect: false,
+    moveOnDisconnect: true,
     resume: true,
     resumeTimeout: 60,
     resumeByLibrary: true,
-    reconnectTries: 5,
+    reconnectTries: 10,
     reconnectInterval: 5,
     restTimeout: 60_000,
     voiceConnectionTimeout: 30_000,

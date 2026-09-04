@@ -4,12 +4,83 @@ const {
   SeparatorBuilder,
   MessageFlags
 } = require("discord.js");
-const emoji = require("../../emojis");
+
+function formatNodeUptime(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return "N/A";
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = String(Math.floor((totalSeconds % 86400) / 3600)).padStart(2, "0");
+  const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return days > 0 ? `${days}d ${hours}:${minutes}:${seconds}` : `${hours}:${minutes}:${seconds}`;
+}
+
+function checkOwner(client, userId) {
+  const owners = client.owners || client.config?.ownerID || [];
+  return owners.includes(userId);
+}
+
+function buildNodesContainer(client) {
+  const nodes = client.manager?.shoukaku?.nodes ? [...client.manager.shoukaku.nodes.values()] : [];
+
+  if (nodes.length === 0) {
+    const errorDisplay = new TextDisplayBuilder()
+      .setContent(`**${client.emoji?.cross || "❌"} No Lavalink nodes configured.**`);
+    return new ContainerBuilder().addTextDisplayComponents(errorDisplay);
+  }
+
+  const connectedCount = nodes.filter((n) => n.state === 1).length;
+  const totalNodes = nodes.length;
+
+  const headerDisplay = new TextDisplayBuilder()
+    .setContent(`**${client.emoji?.info || "ℹ️"} Lavalink Nodes Status (${connectedCount}/${totalNodes} Connected)**`);
+
+  const container = new ContainerBuilder()
+    .addTextDisplayComponents(headerDisplay)
+    .addSeparatorComponents(new SeparatorBuilder());
+
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    const isConnected = node.state === 1;
+    const statusText = isConnected ? "Connected" : (node.state === 0 ? "Connecting" : "Disconnected");
+    const statusEmoji = isConnected ? (client.emoji?.check || "🟢") : (client.emoji?.cross || "🔴");
+    const uptime = isConnected && node.stats ? formatNodeUptime(Number(node.stats.uptime) || 0) : "N/A";
+    const players = node.stats?.players ?? 0;
+    const playingPlayers = node.stats?.playingPlayers ?? 0;
+
+    let nodeContent = `### ${statusEmoji} ${node.name || `Node ${i + 1}`} \`[${statusText}]\`\n`;
+    if (isConnected && node.stats) {
+      const mem = node.stats.memory || {};
+      const cpu = node.stats.cpu || {};
+      const usedMb = Math.round((mem.used || 0) / 1024 / 1024);
+      const freeMb = Math.round((mem.free || 0) / 1024 / 1024);
+      const allocatedMb = Math.round((mem.allocated || 0) / 1024 / 1024);
+      const reservableMb = Math.round((mem.reservable || 0) / 1024 / 1024);
+
+      const sysCpu = ((cpu.systemLoad || 0) * 100).toFixed(2);
+      const lavaCpu = ((cpu.lavalinkLoad || 0) * 100).toFixed(2);
+
+      nodeContent +=
+        `> **Players:** \`${players}\` (\`${playingPlayers}\` playing) • **Uptime:** \`${uptime}\`\n` +
+        `> **Memory:** Used \`${usedMb} MB\` / Free \`${freeMb} MB\` (Alloc: \`${allocatedMb} MB\`, Res: \`${reservableMb} MB\`)\n` +
+        `> **CPU:** \`${cpu.cores || 0} Cores\` • System: \`${sysCpu}%\` • Lavalink: \`${lavaCpu}%\``;
+    } else {
+      nodeContent += `> **Status:** \`${statusText}\` • Awaiting handshake or offline`;
+    }
+
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(nodeContent));
+    if (i < nodes.length - 1) {
+      container.addSeparatorComponents(new SeparatorBuilder());
+    }
+  }
+
+  return container;
+}
 
 module.exports = {
   name: "node",
   category: "Owner",
-  description: "Shows Node information.",
+  description: "Displays real-time status and metrics for all Lavalink nodes.",
   botPerms: ["EmbedLinks"],
   args: false,
   usage: "",
@@ -18,10 +89,11 @@ module.exports = {
   cooldown: 3,
 
   slashOptions: [],
+
   async slashExecute(interaction, client) {
-    if (!client.owners.includes(interaction.user.id)) {
+    if (!checkOwner(client, interaction.user.id)) {
       const denyDisplay = new TextDisplayBuilder()
-        .setContent(`**${client.emoji.warn} You do not have permission to use this command.**`);
+        .setContent(`**${client.emoji?.warn || "⚠️"} You do not have permission to use this command.**`);
 
       const denyContainer = new ContainerBuilder()
         .addTextDisplayComponents(denyDisplay);
@@ -32,157 +104,33 @@ module.exports = {
       }).catch(() => { });
     }
 
-    const nodes = [...client.manager.shoukaku.nodes.values()];
+    const container = buildNodesContainer(client);
 
-    if (nodes.length === 0 || !nodes[0].stats) {
-      const errorDisplay = new TextDisplayBuilder()
-        .setContent(`**${client.emoji.cross} Node: Disconnected**`);
-
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(errorDisplay);
-
-      return interaction.reply({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2
-      });
-    }
-
-    const node = nodes[0];
-    const status = node.stats ? "Connected" : "Disconnected";
-    const formatNodeUptime = (ms) => {
-      if (!Number.isFinite(ms) || ms <= 0) return "N/A";
-      const totalSeconds = Math.floor(ms / 1000);
-      const days = Math.floor(totalSeconds / 86400);
-      const hours = String(Math.floor((totalSeconds % 86400) / 3600)).padStart(2, "0");
-      const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
-      const seconds = String(totalSeconds % 60).padStart(2, "0");
-      return days > 0 ? `${days}d ${hours}:${minutes}:${seconds}` : `${hours}:${minutes}:${seconds}`;
-    };
-    const uptime = node.stats ? formatNodeUptime(Number(node.stats.uptime) || 0) : "N/A";
-
-    const headerDisplay = new TextDisplayBuilder()
-      .setContent(`**${client.emoji.check} Lavalink Node**`);
-
-    const separator1 = new SeparatorBuilder();
-
-    const connectionDisplay = new TextDisplayBuilder()
-      .setContent(
-        `**${client.user.username} is ${status}**\n` +
-        `Player \`:\` \`${node.stats.players}\`\n` +
-        `Playing Players \`:\` \`${node.stats.playingPlayers}\`\n` +
-        `Uptime \`:\` \`${uptime}\``
-      );
-
-    const separator2 = new SeparatorBuilder();
-
-    const memoryDisplay = new TextDisplayBuilder()
-      .setContent(
-        `**Memory**\n` +
-        `Reservable Memory \`:\` \`${Math.round(node.stats.memory.reservable / 1024 / 1024)} MB\`\n` +
-        `Used Memory \`:\` \`${Math.round(node.stats.memory.used / 1024 / 1024)} MB\`\n` +
-        `Free Memory \`:\` \`${Math.round(node.stats.memory.free / 1024 / 1024)} MB\`\n` +
-        `Allocated Memory \`:\` \`${Math.round(node.stats.memory.allocated / 1024 / 1024)} MB\``
-      );
-
-    const separator3 = new SeparatorBuilder();
-
-    const cpuDisplay = new TextDisplayBuilder()
-      .setContent(
-        `**CPU**\n` +
-        `Cores \`:\` \`${node.stats.cpu.cores}\`\n` +
-        `System Load \`:\` \`${(Math.round(node.stats.cpu.systemLoad * 100) / 100).toFixed(2)}%\`\n` +
-        `Lavalink Load \`:\` \`${(Math.round(node.stats.cpu.lavalinkLoad * 100) / 100).toFixed(2)}%\``
-      );
-
-    const container = new ContainerBuilder()
-      .addTextDisplayComponents(headerDisplay)
-      .addSeparatorComponents(separator1)
-      .addTextDisplayComponents(connectionDisplay)
-      .addSeparatorComponents(separator2)
-      .addTextDisplayComponents(memoryDisplay)
-      .addSeparatorComponents(separator3)
-      .addTextDisplayComponents(cpuDisplay);
-
-    interaction.reply({
+    return interaction.reply({
       components: [container],
-      flags: MessageFlags.IsComponentsV2
-    });
+      flags: MessageFlags.IsComponentsV2,
+    }).catch(() => { });
   },
-  async execute(message, args, client, prefix) {
-    const nodes = [...client.manager.shoukaku.nodes.values()];
 
-    if (nodes.length === 0 || !nodes[0].stats) {
-      const errorDisplay = new TextDisplayBuilder()
-        .setContent(`**${client.emoji.cross} Node: Disconnected**`);
+  async execute(message, args, client) {
+    if (!checkOwner(client, message.author.id)) {
+      const denyDisplay = new TextDisplayBuilder()
+        .setContent(`**${client.emoji?.warn || "⚠️"} You do not have permission to use this command.**`);
 
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(errorDisplay);
+      const denyContainer = new ContainerBuilder()
+        .addTextDisplayComponents(denyDisplay);
 
       return message.reply({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2
-      });
+        components: [denyContainer],
+        flags: MessageFlags.IsComponentsV2,
+      }).catch(() => { });
     }
 
-    const node = nodes[0];
-    const status = node.stats ? "Connected" : "Disconnected";
-    const formatNodeUptime = (ms) => {
-      if (!Number.isFinite(ms) || ms <= 0) return "N/A";
-      const totalSeconds = Math.floor(ms / 1000);
-      const days = Math.floor(totalSeconds / 86400);
-      const hours = String(Math.floor((totalSeconds % 86400) / 3600)).padStart(2, "0");
-      const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
-      const seconds = String(totalSeconds % 60).padStart(2, "0");
-      return days > 0 ? `${days}d ${hours}:${minutes}:${seconds}` : `${hours}:${minutes}:${seconds}`;
-    };
-    const uptime = node.stats ? formatNodeUptime(Number(node.stats.uptime) || 0) : "N/A";
+    const container = buildNodesContainer(client);
 
-    const headerDisplay = new TextDisplayBuilder()
-      .setContent(`**${client.emoji.check} Lavalink Node**`);
-
-    const separator1 = new SeparatorBuilder();
-
-    const connectionDisplay = new TextDisplayBuilder()
-      .setContent(
-        `**${client.user.username} is ${status}**\n` +
-        `Player \`:\` \`${node.stats.players}\`\n` +
-        `Playing Players \`:\` \`${node.stats.playingPlayers}\`\n` +
-        `Uptime \`:\` \`${uptime}\``
-      );
-
-    const separator2 = new SeparatorBuilder();
-
-    const memoryDisplay = new TextDisplayBuilder()
-      .setContent(
-        `**Memory**\n` +
-        `Reservable Memory \`:\` \`${Math.round(node.stats.memory.reservable / 1024 / 1024)} MB\`\n` +
-        `Used Memory \`:\` \`${Math.round(node.stats.memory.used / 1024 / 1024)} MB\`\n` +
-        `Free Memory \`:\` \`${Math.round(node.stats.memory.free / 1024 / 1024)} MB\`\n` +
-        `Allocated Memory \`:\` \`${Math.round(node.stats.memory.allocated / 1024 / 1024)} MB\``
-      );
-
-    const separator3 = new SeparatorBuilder();
-
-    const cpuDisplay = new TextDisplayBuilder()
-      .setContent(
-        `**CPU**\n` +
-        `Cores \`:\` \`${node.stats.cpu.cores}\`\n` +
-        `System Load \`:\` \`${(Math.round(node.stats.cpu.systemLoad * 100) / 100).toFixed(2)}%\`\n` +
-        `Lavalink Load \`:\` \`${(Math.round(node.stats.cpu.lavalinkLoad * 100) / 100).toFixed(2)}%\``
-      );
-
-    const container = new ContainerBuilder()
-      .addTextDisplayComponents(headerDisplay)
-      .addSeparatorComponents(separator1)
-      .addTextDisplayComponents(connectionDisplay)
-      .addSeparatorComponents(separator2)
-      .addTextDisplayComponents(memoryDisplay)
-      .addSeparatorComponents(separator3)
-      .addTextDisplayComponents(cpuDisplay);
-
-    message.reply({
+    return message.reply({
       components: [container],
-      flags: MessageFlags.IsComponentsV2
-    });
+      flags: MessageFlags.IsComponentsV2,
+    }).catch(() => { });
   },
 };

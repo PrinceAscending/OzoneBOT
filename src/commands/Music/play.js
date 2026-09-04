@@ -6,6 +6,8 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  StringSelectMenuBuilder,
+  ComponentType,
   MessageFlags,
   PermissionsBitField,
 } = require("discord.js");
@@ -96,17 +98,79 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
   }
 
   const isUrl = /^https?:\/\//.test(query);
-  let searchEngine = "ytmsearch";
+  let editReply = reply;
+  let searchEngine = isUrl ? undefined : player.data?.get("sessionSource");
 
-  if (!isUrl) {
-    try {
-      const userPref = await UserPreferences.findOne({ userId: user.id });
-      if (userPref?.musicSource) {
-        searchEngine = userPref.musicSource;
-      }
-    } catch {
-      searchEngine = "ytmsearch";
+  if (!isUrl && !searchEngine) {
+    const sourceList = [
+      { label: "YouTube Music", value: "ytmsearch", description: "Search & stream from YouTube Music", emojiKey: "ytmusic" },
+      { label: "YouTube", value: "ytsearch", description: "Search & stream directly from YouTube", emojiKey: "youtube" },
+      { label: "Spotify", value: "spsearch", description: "Search tracks via Spotify", emojiKey: "spotify" },
+      { label: "Apple Music", value: "amsearch", description: "Search tracks via Apple Music", emojiKey: "applemusic" },
+      { label: "Deezer", value: "dzsearch", description: "Search tracks via Deezer", emojiKey: "deezer" },
+      { label: "JioSaavn", value: "jssearch", description: "Search tracks via JioSaavn", emojiKey: "jiosaavn" },
+    ];
+
+    const sourceOptions = sourceList.map((opt) => {
+      const item = { label: opt.label, value: opt.value, description: opt.description };
+      const em = client.emoji?.resolvable?.(opt.emojiKey);
+      if (em) item.emoji = em;
+      return item;
+    });
+
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId(`session_src_${user.id}_${Date.now()}`)
+      .setPlaceholder("Choose a music source for this player session...")
+      .addOptions(sourceOptions);
+
+    const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+
+    const promptContainer = new ContainerBuilder()
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `### ${client.emoji?.music || "🎵"} Choose Music Source for this Session\n` +
+          `> Please select your preferred platform for **${guild.name}**.\n` +
+          `> *This choice will be remembered for the rest of this session!*`
+        )
+      )
+      .addActionRowComponents(selectRow);
+
+    const promptMsg = await reply({
+      components: [promptContainer],
+      flags: MessageFlags.IsComponentsV2,
+    }).catch(() => null);
+
+    if (promptMsg && typeof promptMsg.edit === "function") {
+      editReply = (opts) => promptMsg.edit(opts);
     }
+
+    if (promptMsg && typeof promptMsg.awaitMessageComponent === "function") {
+      try {
+        const selection = await promptMsg.awaitMessageComponent({
+          filter: (i) => i.user.id === user.id,
+          componentType: ComponentType.StringSelect,
+          time: 30000,
+        });
+        searchEngine = selection.values[0];
+        await selection.deferUpdate().catch(() => {});
+      } catch {
+        try {
+          const userPref = await UserPreferences.findOne({ userId: user.id });
+          searchEngine = userPref?.musicSource || client.config?.node_source || "ytmsearch";
+        } catch {
+          searchEngine = client.config?.node_source || "ytmsearch";
+        }
+      }
+    } else {
+      try {
+        const userPref = await UserPreferences.findOne({ userId: user.id });
+        searchEngine = userPref?.musicSource || client.config?.node_source || "ytmsearch";
+      } catch {
+        searchEngine = client.config?.node_source || "ytmsearch";
+      }
+    }
+
+    player.data?.set("sessionSource", searchEngine);
   }
 
   let searchResult;
@@ -120,6 +184,7 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
     if (await handleSessionError(searchError, player, client)) {
       try {
         player = await recreatePlayer(client, guild.id, voiceChannel.id, textChannel.id);
+        if (searchEngine) player.data?.set("sessionSource", searchEngine);
         searchResult = await player.search(query, {
           requester: user,
           engine: isUrl ? undefined : searchEngine,
@@ -144,7 +209,7 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
   }
 
   if (!searchResult?.tracks?.length) {
-    return reply(errorPayload(`No results found for "${truncateTitle(query, 50)}"`));
+    return editReply(errorPayload(`No results found for "${truncateTitle(query, 50)}"`));
   }
 
   const currentQueueSize = player.queue.length;
@@ -163,7 +228,7 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
       }
     }
 
-    return reply(successPayload(`Queued \`${searchResult.tracks.length}\` tracks from **${searchResult.playlistName || "Playlist"}**`));
+    return editReply(successPayload(`Queued \`${searchResult.tracks.length}\` tracks from **${searchResult.playlistName || "Playlist"}**`));
   }
 
   const track = searchResult.tracks[0];
@@ -216,7 +281,7 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
     container.addActionRowComponents(buttonRow);
   }
 
-  const replyMsg = await reply({
+  const replyMsg = await editReply({
     components: [container],
     flags: MessageFlags.IsComponentsV2,
   });
