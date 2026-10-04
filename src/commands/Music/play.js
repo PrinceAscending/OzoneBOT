@@ -15,6 +15,9 @@ const UserPreferences = require("../../schema/userpreferences");
 const { handleSongAutocomplete } = require("../../utils/songAutocomplete");
 const { convertTime } = require("../../utils/convert");
 const { errorPayload, warnPayload, successPayload } = require("../../utils/responses");
+const { formatCommandHelp } = require("../../utils/commandHelp");
+const { cleanBotReply } = require("../../utils/autoClean");
+const { safeDestroyPlayer } = require("../../utils/playerUtils");
 
 function cleanAuthorName(author) {
   if (!author) return "Unknown Artist";
@@ -32,7 +35,7 @@ function getCleanThumbnail(thumbnailUrl) {
   if (thumbnailUrl.includes("i.ytimg.com") || thumbnailUrl.includes("img.youtube.com")) {
     const videoIdMatch = thumbnailUrl.match(/vi\/([^/]+)\//);
     if (videoIdMatch && videoIdMatch[1]) {
-      return `https://i.ytimg.com/vi/${videoIdMatch[1]}/maxresdefault.jpg`;
+      return `https://i.ytimg.com/vi/${videoIdMatch[1]}/hqdefault.jpg`;
     }
   }
   return thumbnailUrl;
@@ -49,9 +52,24 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
   }
 
   const { hasAvailableNodes } = require("../../utils/nodeUtils");
-  if (!hasAvailableNodes(client.manager)) {
+  const nodesAvailable = await hasAvailableNodes(client.manager, 7000);
+  if (!nodesAvailable) {
     return reply(errorPayload("The music server is currently unavailable. Please try again in a few moments."));
   }
+
+  const safeReply = async (payload) => {
+    try {
+      return await reply(payload);
+    } catch {
+      if (textChannel && typeof textChannel.send === "function") {
+        return await textChannel.send(payload).catch(() => null);
+      }
+      return null;
+    }
+  };
+
+  const userPref = await UserPreferences.findOne({ userId: user.id }).lean().catch(() => null);
+  const preferredNode = userPref?.preferredNode && userPref.preferredNode !== "auto" ? userPref.preferredNode : undefined;
 
   let player = client.manager.players.get(guild.id);
 
@@ -63,6 +81,8 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
         textId: textChannel.id,
         volume: 80,
         deaf: true,
+        shardId: guild.shardId,
+        nodeName: preferredNode,
       });
 
       try {
@@ -72,25 +92,27 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
       client.logger?.log(`[Play] Player creation error: ${createError.message}`, "error");
 
       if (createError.status === 404 && createError.message?.includes("Session not found")) {
-        if (client.manager.players.has(guild.id)) {
-          client.manager.players.delete(guild.id);
+        const stale = client.manager.players.get(guild.id);
+        if (stale) {
+          await safeDestroyPlayer(stale);
         }
-        await new Promise((r) => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 600));
         player = await client.manager.createPlayer({
           guildId: guild.id,
           voiceId: voiceChannel.id,
           textId: textChannel.id,
           volume: 80,
           deaf: true,
+          shardId: guild.shardId,
         });
         client.voiceHealthMonitor?.startMonitoring(player);
       } else {
-        return reply(errorPayload(`Voice connection failed: ${createError.message || "Unknown error"}`));
+        return safeReply(errorPayload(`Voice connection failed: ${createError.message || "Unknown error"}`));
       }
     }
   } else {
     if (player.voiceId !== voiceChannel.id) {
-      return reply(warnPayload(`I'm already connected to a different voice channel (<#${player.voiceId}>).`));
+      return safeReply(warnPayload(`I'm already connected to a different voice channel (<#${player.voiceId}>).`));
     }
     if (player.textId !== textChannel.id) {
       player.textId = textChannel.id;
@@ -98,78 +120,11 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
   }
 
   const isUrl = /^https?:\/\//.test(query);
-  let editReply = reply;
-  let searchEngine = isUrl ? undefined : player.data?.get("sessionSource");
+  const searchEngine = isUrl
+    ? undefined
+    : (player.data?.get("sessionSource") || userPref?.musicSource || client.config?.node_source || "ytmsearch");
 
-  if (!isUrl && !searchEngine) {
-    const sourceList = [
-      { label: "YouTube Music", value: "ytmsearch", description: "Search & stream from YouTube Music", emojiKey: "ytmusic" },
-      { label: "YouTube", value: "ytsearch", description: "Search & stream directly from YouTube", emojiKey: "youtube" },
-      { label: "Spotify", value: "spsearch", description: "Search tracks via Spotify", emojiKey: "spotify" },
-      { label: "Apple Music", value: "amsearch", description: "Search tracks via Apple Music", emojiKey: "applemusic" },
-      { label: "Deezer", value: "dzsearch", description: "Search tracks via Deezer", emojiKey: "deezer" },
-      { label: "JioSaavn", value: "jssearch", description: "Search tracks via JioSaavn", emojiKey: "jiosaavn" },
-    ];
-
-    const sourceOptions = sourceList.map((opt) => {
-      const item = { label: opt.label, value: opt.value, description: opt.description };
-      const em = client.emoji?.resolvable?.(opt.emojiKey);
-      if (em) item.emoji = em;
-      return item;
-    });
-
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId(`session_src_${user.id}_${Date.now()}`)
-      .setPlaceholder("Choose a music source for this player session...")
-      .addOptions(sourceOptions);
-
-    const selectRow = new ActionRowBuilder().addComponents(selectMenu);
-
-    const promptContainer = new ContainerBuilder()
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `### ${client.emoji?.music || "🎵"} Choose Music Source for this Session\n` +
-          `> Please select your preferred platform for **${guild.name}**.\n` +
-          `> *This choice will be remembered for the rest of this session!*`
-        )
-      )
-      .addActionRowComponents(selectRow);
-
-    const promptMsg = await reply({
-      components: [promptContainer],
-      flags: MessageFlags.IsComponentsV2,
-    }).catch(() => null);
-
-    if (promptMsg && typeof promptMsg.edit === "function") {
-      editReply = (opts) => promptMsg.edit(opts);
-    }
-
-    if (promptMsg && typeof promptMsg.awaitMessageComponent === "function") {
-      try {
-        const selection = await promptMsg.awaitMessageComponent({
-          filter: (i) => i.user.id === user.id,
-          componentType: ComponentType.StringSelect,
-          time: 30000,
-        });
-        searchEngine = selection.values[0];
-        await selection.deferUpdate().catch(() => {});
-      } catch {
-        try {
-          const userPref = await UserPreferences.findOne({ userId: user.id });
-          searchEngine = userPref?.musicSource || client.config?.node_source || "ytmsearch";
-        } catch {
-          searchEngine = client.config?.node_source || "ytmsearch";
-        }
-      }
-    } else {
-      try {
-        const userPref = await UserPreferences.findOne({ userId: user.id });
-        searchEngine = userPref?.musicSource || client.config?.node_source || "ytmsearch";
-      } catch {
-        searchEngine = client.config?.node_source || "ytmsearch";
-      }
-    }
-
+  if (!isUrl && !player.data?.get("sessionSource")) {
     player.data?.set("sessionSource", searchEngine);
   }
 
@@ -209,7 +164,7 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
   }
 
   if (!searchResult?.tracks?.length) {
-    return editReply(errorPayload(`No results found for "${truncateTitle(query, 50)}"`));
+    return safeReply(errorPayload(`No results found for "${truncateTitle(query, 50)}"`));
   }
 
   const currentQueueSize = player.queue.length;
@@ -228,7 +183,9 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
       }
     }
 
-    return editReply(successPayload(`Queued \`${searchResult.tracks.length}\` tracks from **${searchResult.playlistName || "Playlist"}**`));
+    const plReply = await safeReply(successPayload(`Queued \`${searchResult.tracks.length}\` tracks from **${searchResult.playlistName || "Playlist"}**`));
+    cleanBotReply(plReply, guild.id, 12);
+    return plReply;
   }
 
   const track = searchResult.tracks[0];
@@ -246,12 +203,13 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
   const titleDisplay = new TextDisplayBuilder()
     .setContent(`### Enqueued [${truncateTitle(track.title, 45)}](${track.uri})`);
 
+  const activeNode = player.node?.name || player.shoukaku?.node?.name || "Auto";
   const infoDisplay = new TextDisplayBuilder()
     .setContent(
-      `> - **Author:** [${cleanAuthorName(track.author)}](${track.uri})\n` +
+      `> - **Artist:** [${cleanAuthorName(track.author)}](${track.uri})\n` +
       `> - **Duration:** \`${convertTime(track.length)}\`\n` +
       `> - **Requester:** [${user.username}](https://discord.com/users/${user.id})\n` +
-      `> - **Position:** \`${position}\``
+      `> - **Node:** \`${activeNode}\` • **Position:** \`${position}\``
     );
 
   const section = new SectionBuilder()
@@ -262,7 +220,7 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
     section.setThumbnailAccessory((thumbnail) => thumbnail.setURL(cleanThumbnail));
   }
 
-  const container = new ContainerBuilder().addSectionComponents(section);
+  const container = new ContainerBuilder().setAccentColor(0x0A0B0E).addSectionComponents(section);
 
   if (position > 0) {
     const removeButton = new ButtonBuilder()
@@ -281,15 +239,19 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
     container.addActionRowComponents(buttonRow);
   }
 
-  const replyMsg = await editReply({
+  const replyMsg = await safeReply({
     components: [container],
     flags: MessageFlags.IsComponentsV2,
   });
 
+  if (position === 0) {
+    cleanBotReply(replyMsg, guild.id, 8);
+  }
+
   if (position > 0 && replyMsg && typeof replyMsg.createMessageComponentCollector === "function") {
     const collector = replyMsg.createMessageComponentCollector({
       filter: (i) => i.user.id === user.id,
-      time: 180000,
+      time: 60000,
     });
 
     let actionTaken = false;
@@ -297,7 +259,7 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
     collector.on("collect", async (buttonInteraction) => {
       if (!buttonInteraction.member?.voice?.channel || buttonInteraction.member.voice.channel.id !== player.voiceId) {
         return buttonInteraction.reply({
-          content: `**${client.emoji.warn || "⚠️"} You must be in my voice channel to use this.**`,
+          content: `**${client.emoji.warn || ""} You must be in my voice channel to use this.**`.trim(),
           flags: MessageFlags.Ephemeral,
         });
       }
@@ -313,9 +275,10 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
           player.queue.splice(trackIndex, 1);
           actionTaken = true;
           await buttonInteraction.update(successPayload(`Removed [${truncateTitle(removedTrack.title, 40)}](${removedTrack.uri}) from the queue.`)).catch(() => {});
+          cleanBotReply(replyMsg, guild.id, 6);
         } else {
           await buttonInteraction.reply({
-            content: `**${client.emoji.cross || "❌"} This track is no longer in the queue.**`,
+            content: `**${client.emoji.cross || ""} This track is no longer in the queue.**`.trim(),
             flags: MessageFlags.Ephemeral,
           });
         }
@@ -327,9 +290,10 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
           player.queue.unshift(trackToMove);
           actionTaken = true;
           await buttonInteraction.update(successPayload(`Moved [${truncateTitle(trackToMove.title, 40)}](${trackToMove.uri}) to play next.`)).catch(() => {});
+          cleanBotReply(replyMsg, guild.id, 6);
         } else {
           await buttonInteraction.reply({
-            content: `**${client.emoji.cross || "❌"} This track is no longer in the queue.**`,
+            content: `**${client.emoji.cross || ""} This track is no longer in the queue.**`.trim(),
             flags: MessageFlags.Ephemeral,
           });
         }
@@ -337,13 +301,7 @@ async function executePlayFlow({ client, guild, voiceChannel, textChannel, user,
     });
 
     collector.on("end", () => {
-      if (!actionTaken && replyMsg) {
-        const plainContainer = new ContainerBuilder().addSectionComponents(section);
-        replyMsg.edit({
-          components: [plainContainer],
-          flags: MessageFlags.IsComponentsV2,
-        }).catch(() => {});
-      }
+      cleanBotReply(replyMsg, guild.id, 5);
     });
   }
 }
@@ -353,7 +311,10 @@ module.exports = {
   category: "Music",
   aliases: ["p"],
   cooldown: 3,
+  keepAlive: true,
   description: "Plays a song or playlist in your voice channel.",
+  args: true,
+  usage: "<song name | URL>",
   inVoiceChannel: true,
   sameVoiceChannel: true,
   botPerms: ["EmbedLinks", "Connect", "Speak"],
@@ -388,13 +349,7 @@ module.exports = {
   async execute(message, args, client, prefix) {
     const query = args.join(" ").trim();
     if (!query) {
-      const usage = new ContainerBuilder().addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `**${client.emoji.dot || "•"} Usage:** \`${prefix}play [Song Name / URL]\`\n` +
-          `**${client.emoji.dot || "•"} Example:** \`${prefix}play believer\``
-        )
-      );
-      return message.reply({ components: [usage], flags: MessageFlags.IsComponentsV2 });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     return executePlayFlow({

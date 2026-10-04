@@ -7,32 +7,33 @@ module.exports = {
       const manager = client.manager;
       if (!manager) return;
 
-      // moveOnDisconnect is disabled in config, so players on the dead node
-      // are neither moved nor destroyed. Destroy them here so /play can
-      // recreate a clean player on another node.
       const targets = Array.isArray(players) && players.length > 0
         ? players
         : [...manager.players.values()].filter(
-            (player) => player.shoukaku?.node?.name === name
+            (player) => player.shoukaku?.node?.name === name || player.node?.name === name
           );
 
-      for (const target of targets) {
-        try {
-          const guildId = target?.guildId;
-          if (!guildId) continue;
-          const kazagumoPlayer = manager.players.get(guildId);
-          if (kazagumoPlayer) {
-            await kazagumoPlayer.destroy();
+      if (client.migrationService && targets.length > 0) {
+        client.logger?.log?.(
+          `[Disconnect] Initiating auto-failover migration for ${targets.length} player(s) on node "${name}"`,
+          "warn"
+        );
+        await client.migrationService.migratePlayersFromNode(name, targets);
+      } else {
+        for (const target of targets) {
+          try {
+            const guildId = target?.guildId;
+            if (!guildId) continue;
+            const kazagumoPlayer = manager.players.get(guildId);
+            if (kazagumoPlayer) {
+              await kazagumoPlayer.destroy();
+            }
+          } catch (err) {
             client.logger?.log?.(
-              `[Disconnect] Destroyed player for guild ${guildId} (node "${name}" disconnected)`,
+              `[Disconnect] Cleanup error for player ${target?.guildId || "unknown"}: ${err?.message || err}`,
               "warn"
             );
           }
-        } catch (err) {
-          client.logger?.log?.(
-            `[Disconnect] Failed to destroy player ${target?.guildId || "unknown"}: ${err?.message || err}`,
-            "warn"
-          );
         }
       }
 

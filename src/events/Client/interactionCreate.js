@@ -436,7 +436,7 @@ module.exports = {
           return interaction.reply({ content: `**${client.emoji.warn} You must be in my voice channel to use these buttons.**`, flags: MessageFlags.Ephemeral });
         }
 
-        const { updateNowPlayingButtons } = require("../Players/playerStart");
+        const { updateNowPlayingButtons, refreshNowPlayingMessage } = require("../Players/playerStart");
 
         switch (interaction.customId) {
           case "previous": {
@@ -510,8 +510,203 @@ module.exports = {
             }).catch(() => { });
             break;
           }
+
+          case "shuffle": {
+            if (!player.queue || player.queue.length <= 1) {
+              return interaction.reply({
+                content: `**${client.emoji.warn || ""} Not enough tracks in queue to shuffle.**`.trim(),
+                flags: MessageFlags.Ephemeral,
+              });
+            }
+            player.queue.shuffle();
+            await interaction.reply({
+              content: `**${client.emoji.check || ""} Shuffled \`${player.queue.length}\` tracks in the queue.**`.trim(),
+              flags: MessageFlags.Ephemeral,
+            }).catch(() => {});
+            break;
+          }
+
+          case "voldown": {
+            const currentVol = Number(player.volume) || 100;
+            const newVol = Math.max(0, currentVol - 10);
+            await player.setVolume(newVol);
+            await refreshNowPlayingMessage(client, player);
+            await interaction.reply({
+              content: `**${client.emoji?.voldown || ""} Volume: \`${newVol}%\`**`.trim(),
+              flags: MessageFlags.Ephemeral,
+            }).catch(() => {});
+            break;
+          }
+
+          case "volup": {
+            const currentVol = Number(player.volume) || 100;
+            const newVol = Math.min(150, currentVol + 10);
+            await player.setVolume(newVol);
+            await refreshNowPlayingMessage(client, player);
+            await interaction.reply({
+              content: `**${client.emoji?.volup || ""} Volume: \`${newVol}%\`**`.trim(),
+              flags: MessageFlags.Ephemeral,
+            }).catch(() => {});
+            break;
+          }
+
+          case "favourite": {
+            const currentTrack = player.queue?.current;
+            if (!currentTrack) {
+              return interaction.reply({
+                content: `**${client.emoji?.warn || ""} No track is currently playing.**`.trim(),
+                flags: MessageFlags.Ephemeral,
+              }).catch(() => {});
+            }
+            const Liked = require("../../schema/liked");
+            try {
+              let userLiked = await Liked.findOne({ userId: interaction.user.id });
+              if (!userLiked) {
+                userLiked = new Liked({ userId: interaction.user.id, songs: [] });
+              }
+              const exists = userLiked.songs.findIndex((s) => s.url === currentTrack.uri);
+              if (exists !== -1) {
+                userLiked.songs.splice(exists, 1);
+                await userLiked.save();
+                await interaction.reply({
+                  content: `**${client.emoji?.favourite || client.emoji?.like || ""} Removed [${currentTrack.title.slice(0, 40)}](${currentTrack.uri}) from your favorites.**`.trim(),
+                  flags: MessageFlags.Ephemeral,
+                }).catch(() => {});
+              } else {
+                userLiked.songs.push({
+                  title: currentTrack.title,
+                  url: currentTrack.uri,
+                  duration: currentTrack.length,
+                  thumbnail: currentTrack.thumbnail,
+                  author: currentTrack.author,
+                });
+                await userLiked.save();
+                await interaction.reply({
+                  content: `**${client.emoji?.favourite || client.emoji?.like || ""} Added [${currentTrack.title.slice(0, 40)}](${currentTrack.uri}) to your favorites!**`.trim(),
+                  flags: MessageFlags.Ephemeral,
+                }).catch(() => {});
+              }
+            } catch (err) {
+              await interaction.reply({
+                content: `**${client.emoji?.cross || ""} Could not update favorites: ${err.message}**`.trim(),
+                flags: MessageFlags.Ephemeral,
+              }).catch(() => {});
+            }
+            break;
+          }
+
+          case "node_selector": {
+            const { buildNodeButtonsPayload } = require("../../utils/nodeButtons");
+            const payload = buildNodeButtonsPayload(client, interaction.guildId, player.node?.name, "node_switch_");
+            return interaction.reply({
+              ...payload,
+              flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+            }).catch(() => {});
+          }
         }
         return;
+      }
+
+      // Handle hot-switching audio nodes via buttons
+      if (interaction.customId.startsWith("node_switch_")) {
+        const chosen = interaction.customId.replace("node_switch_", "");
+        const player = client.manager?.players?.get(interaction.guildId);
+
+        if (client.nodeRouter && interaction.guildId) {
+          client.nodeRouter.setGuildAffinity(interaction.guildId, chosen);
+        }
+
+        const UserPreferences = require("../../schema/userpreferences");
+        UserPreferences.findOneAndUpdate(
+          { userId: interaction.user.id },
+          { preferredNode: chosen, updatedAt: Date.now() },
+          { upsert: true }
+        ).catch(() => {});
+
+        if (player && chosen !== (player.node?.name || "auto")) {
+          client.migrationService?.migratePlayer(interaction.guildId, chosen === "auto" ? null : chosen, {
+            reason: `User ${interaction.user.username} switched node via controls`,
+            notify: true,
+          });
+        }
+
+        const { ContainerBuilder, TextDisplayBuilder } = require("discord.js");
+        const confirmContainer = new ContainerBuilder()
+          .setAccentColor(0x0A0B0E)
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `**${client.emoji?.check || ""} Audio stream successfully transferred to \`${chosen === "auto" ? "Automatic (Optimal)" : chosen}\`!**`.trim()
+            )
+          );
+
+        return interaction.update({
+          components: [confirmContainer],
+          flags: MessageFlags.IsComponentsV2,
+        }).catch(() => {});
+      }
+    }
+
+    if (interaction.isStringSelectMenu()) {
+      if (interaction.customId.startsWith("theme_select:")) {
+        const ownerId = interaction.customId.split(":")[1];
+        if (ownerId && interaction.user.id !== ownerId) {
+          return interaction.reply({
+            content: `**${client.emoji?.warn || ""} Only <@${ownerId}> can change this setting.**`,
+            flags: MessageFlags.Ephemeral,
+          }).catch(() => {});
+        }
+
+        const chosen = interaction.values[0];
+        const THEMES = {
+          obsidian: { name: "Pure Obsidian", color: 0x0A0B0E, desc: "Ultra-sleek pitch black & stealth matte dark (Pure Dark)" },
+          minimal: { name: "Minimal Slate", color: 0x18181B, desc: "Clean, industrial monochrome charcoal" },
+          neon: { name: "Neon Synth", color: 0xFF007F, desc: "Hot pink & magenta synthwave neon glow" },
+          cyber: { name: "Cyber Emerald", color: 0x00FF66, desc: "Matrix and cyberpunk vibrant green" },
+          amber: { name: "Golden Amber", color: 0xF5B041, desc: "Warm vinyl vintage sunset glow" },
+          royal: { name: "Royal Velvet", color: 0x8E44AD, desc: "Deep imperial purple & indigo" },
+          crimson: { name: "Crimson Flame", color: 0xE74C3C, desc: "High intensity red and flame aesthetic" },
+        };
+
+        if (!THEMES[chosen]) return interaction.deferUpdate().catch(() => {});
+
+        const UserPreferences = require("../../schema/userpreferences");
+        await UserPreferences.findOneAndUpdate(
+          { userId: interaction.user.id },
+          { $set: { theme: chosen } },
+          { upsert: true, new: true }
+        ).catch(() => {});
+
+        const player = client.manager?.players?.get(interaction.guildId);
+        if (player) player.data.set("accentColor", THEMES[chosen].color);
+
+        const { StringSelectMenuBuilder, ActionRowBuilder } = require("discord.js");
+        const options = Object.entries(THEMES).map(([id, t]) => ({
+          label: t.name,
+          value: id,
+          description: t.desc.slice(0, 100),
+          default: id === chosen,
+        }));
+        const menu = new StringSelectMenuBuilder()
+          .setCustomId(`theme_select:${interaction.user.id}`)
+          .setPlaceholder("Select your card theme...")
+          .addOptions(options);
+        const row = new ActionRowBuilder().addComponents(menu);
+
+        const card = new ContainerBuilder()
+          .setAccentColor(THEMES[chosen].color)
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `### ${client.emoji?.check || ""} Theme Updated: ${THEMES[chosen].name}!\n` +
+              `Your now-playing cards will now be rendered in **${THEMES[chosen].name}** (*${THEMES[chosen].desc}*).\n\n` +
+              `**Current Theme:** **${THEMES[chosen].name}**`
+            )
+          )
+          .addActionRowComponents(row);
+
+        return interaction.update({
+          components: [card],
+          flags: MessageFlags.IsComponentsV2,
+        }).catch(() => {});
       }
     }
   },

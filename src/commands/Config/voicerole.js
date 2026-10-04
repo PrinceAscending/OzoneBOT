@@ -5,12 +5,14 @@ const {
 } = require("discord.js");
 const VoiceRole = require("../../schema/voicerole");
 const { successPayload, warnPayload, infoPayload } = require("../../utils/responses");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
   name: "voicerole",
   aliases: ["vcrole"],
   category: "Config",
   description: "Set a temporary role assigned to users while they are in a voice channel.",
+  usage: "set <@role> | remove | show",
   cooldown: 5,
   userPerms: ["ManageRoles"],
   botPerms: ["ManageRoles"],
@@ -108,7 +110,7 @@ module.exports = {
         .setAccentColor(0x5865F2)
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
-            `### 🎙️ Current Voice Role: ${role ? `<@&${role.id}>` : `<@&${doc.roleId}>`}\n` +
+            `### ${client.emoji?.config || ""} Current Voice Role: ${role ? `<@&${role.id}>` : `<@&${doc.roleId}>`}\n` +
             `-# This role is automatically assigned when members join voice and removed when they leave.`
           )
         );
@@ -116,15 +118,6 @@ module.exports = {
       return message.reply({ components: [card], flags: MessageFlags.IsComponentsV2 });
     }
 
-    const usage = new ContainerBuilder().addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `### 🎙️ Voice Role Management\n` +
-        `\`${prefix || client.prefix}voicerole set <@role>\` — Set the active voice role\n` +
-        `\`${prefix || client.prefix}voicerole remove\` — Disable the voice role\n` +
-        `\`${prefix || client.prefix}voicerole show\` — Display the active voice role`
-      )
-    );
-
-    return message.reply({ components: [usage], flags: MessageFlags.IsComponentsV2 });
+    return message.reply(formatCommandHelp(this, message.author, prefix));
   },
 };

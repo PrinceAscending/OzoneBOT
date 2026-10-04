@@ -168,7 +168,7 @@ module.exports = {
     const card = new ContainerBuilder()
       .setAccentColor(0xB388FF)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(
-        `### ${emoji.dance || "✨"} Vibe locked: _${vibe.slice(0, 80)}_\n` +
+        `### ${emoji.dance || ""} Vibe locked: _${vibe.slice(0, 80)}_\n` +
         `-# Curated by OZONE AI — ${added.length} tracks ${willPlayNow ? "now playing" : "queued"}`,
       ))
       .addSeparatorComponents(new SeparatorBuilder())

@@ -7,6 +7,7 @@ const loadPlayerManager = require("../loaders/loadPlayerManager");
 const initializeAccessCleanup = require("../utils/accessCleanup");
 const { discordShardOptions, resolveClusterInfo } = require("../utils/clusterMode");
 const VoiceHealthMonitor = require("../utils/voiceHealthMonitor");
+const ReconnectionGuard = require("../utils/reconnectionGuard");
 
 class MusicBot extends Client {
   constructor() {
@@ -58,6 +59,7 @@ class MusicBot extends Client {
     this.commandStats = new Map();
     this.commandStatsSince = Date.now();
     this.voiceHealthMonitor = new VoiceHealthMonitor(this);
+    this.reconnectionGuard = new ReconnectionGuard();
 
     if (process.env.DEBUG_VOICE === "true") {
       this.on("raw", (packet) => {
@@ -125,6 +127,75 @@ class MusicBot extends Client {
     mongoose.connection.on("disconnected", () => {
       this.logger.log("[DB] Mongoose disconnected", "error");
     });
+  }
+
+  /**
+   * Safely and idempotently reconnects a 24/7 guild player.
+   * Guarded against concurrent createPlayer calls and rapid feedback loops.
+   */
+  async reconnect247Guild(guildId, options = {}) {
+    return this.reconnectionGuard.runGuarded(guildId, async () => {
+      const TwoFourSeven = require("../schema/247");
+      const data = await TwoFourSeven.findOne({ Guild: guildId });
+      if (!data) return null;
+
+      const voice = this.channels.cache.get(data.VoiceId);
+      if (!voice) {
+        this.logger.log(`[247] Voice channel ${data.VoiceId} not found in guild ${guildId}`, "warn");
+        return null;
+      }
+
+      const guild = voice.guild;
+      const botMember = guild.members.me || guild.members.cache.get(this.user.id);
+      if (!botMember) return null;
+
+      const permissions = voice.permissionsFor(botMember);
+      if (!permissions || !permissions.has(["Connect", "Speak"])) {
+        this.logger.log(`[247] Missing Connect/Speak permissions in ${voice.name} (${guild.name})`, "warn");
+        return null;
+      }
+
+      // Check if existing player is already healthy and in the target voice channel
+      const existingPlayer = this.manager?.players?.get(guildId);
+      const isHealthy =
+        existingPlayer &&
+        existingPlayer.state !== 4 &&
+        existingPlayer.state !== 5 &&
+        botMember.voice?.channelId === data.VoiceId;
+      if (isHealthy) {
+        if (existingPlayer.state !== 1) existingPlayer.state = 1;
+        return existingPlayer;
+      }
+
+      // Clean up any stale player instance or connection before recreation
+      if (existingPlayer) {
+        try {
+          await existingPlayer.destroy();
+        } catch {}
+        await new Promise((r) => setTimeout(r, 600));
+      }
+
+      try {
+        const player = await this.manager.createPlayer({
+          guildId: data.Guild,
+          voiceId: data.VoiceId,
+          textId: data.TextId,
+          volume: 80,
+          deaf: true,
+          shardId: guild.shardId,
+        });
+
+        if (this.voiceHealthMonitor && player) {
+          this.voiceHealthMonitor.startMonitoring(player);
+        }
+
+        this.logger.log(`[247] Successfully connected to ${voice.name} in ${guild.name}`, "ready");
+        return player;
+      } catch (err) {
+        this.logger.log(`[247] Reconnection failed for guild ${guildId}: ${err.message}`, "error");
+        return null;
+      }
+    }, options);
   }
 
   connect() {

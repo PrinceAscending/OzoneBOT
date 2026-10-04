@@ -19,6 +19,7 @@ const {
 } = require("discord.js");
 const emoji = require("../../emojis");
 const QuizScore = require("../../schema/quizscore");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 const QUIZ_POOL = [
   "top hits", "pop classics", "rock anthems", "bollywood hits", "punjabi hits",
@@ -144,7 +145,7 @@ module.exports = {
   cooldown: 10,
   description: "Start an in-VC Music Quiz — guess the song, climb the leaderboard!",
   args: false,
-  usage: "[start|stop|leaderboard] [genre]",
+  usage: "start [genre] | stop | leaderboard",
   userPerms: [],
   botPerms: ["EmbedLinks"],
   player: true,
@@ -170,7 +171,7 @@ module.exports = {
     return this.execute(wrapper, [action], client, client.prefix);
   },
 
-  async execute(message, args, client) {
+  async execute(message, args, client, prefix) {
     const player = client.manager.players.get(message.guild.id);
     if (!player) {
       return message.reply({
@@ -225,12 +226,7 @@ module.exports = {
     }
 
     if (sub !== "start") {
-      return message.reply({
-        components: [new ContainerBuilder().addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`**${client.emoji.info} Usage:** \`quiz start\`, \`quiz stop\`, \`quiz leaderboard\``),
-        )],
-        flags: MessageFlags.IsComponentsV2,
-      });
+      return message.reply(formatCommandHelp(this, message.author, prefix || client.prefix));
     }
 
     /* ---------- start ---------- */
@@ -279,7 +275,7 @@ module.exports = {
     player.data.set("quiz", { running: true, savedCurrent, savedQueue, scoreboard: {} });
     await setQuizVolume(player);
     const { setVoiceChannelStatus } = require("../../utils/voiceChannelStatus");
-    setVoiceChannelStatus(client, player, "🎵 Music Quiz in progress — guess the tune!");
+    setVoiceChannelStatus(client, player, "OZONE Music Quiz in progress — guess the tune!");
 
     const scoreboard = player.data.get("quiz").scoreboard;
     let roundIdx = 0;
@@ -413,7 +409,7 @@ async function endQuiz(client, player, message, scoreboard, totalRounds, natural
   const ranking = Object.entries(scoreboard).sort((a, b) => b[1] - a[1]);
   const podium = ranking.length
     ? ranking.map(([userId, score], i) => {
-        const medal = ["🥇", "🥈", "🥉"][i] || `**${i + 1}.**`;
+        const medal = `\`#${i + 1}\``;
         return `${medal} <@${userId}> — **${score}** pts`;
       }).join("\n")
     : "`—` a silent quiz — nobody scored";

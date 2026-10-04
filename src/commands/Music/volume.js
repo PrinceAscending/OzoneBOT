@@ -5,6 +5,7 @@ const {
   MessageFlags,
 } = require("discord.js");
 const { successPayload, warnPayload, errorPayload } = require("../../utils/responses");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 function createVolumeBar(volume, max = 150) {
   const size = 15;
@@ -19,6 +20,7 @@ module.exports = {
   category: "Music",
   description: "Adjust the music playback volume (0% - 150%).",
   cooldown: 3,
+  usage: "[0-150]",
   player: true,
   inVoiceChannel: true,
   sameVoiceChannel: true,
@@ -44,10 +46,10 @@ module.exports = {
     if (level === null || level === undefined) {
       const currentVol = Math.round(player.volume ?? 100);
       const card = new ContainerBuilder()
-        .setAccentColor(0x5865F2)
+        .setAccentColor(0x0A0B0E)
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
-            `### ${client.emoji.music || "🎵"} Current Volume: \`${currentVol}%\`\n` +
+            `### ${client.emoji.music || ""} Current Volume: \`${currentVol}%\`\n` +
             `${createVolumeBar(currentVol)}`
           )
         );
@@ -56,10 +58,10 @@ module.exports = {
 
     await player.setVolume(level);
     const card = new ContainerBuilder()
-      .setAccentColor(0x57F287)
+      .setAccentColor(0x35C47C)
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `### ${client.emoji.check || "✅"} Volume set to \`${level}%\`\n` +
+          `### ${client.emoji.check || ""} Volume set to \`${level}%\`\n` +
           `${createVolumeBar(level)}`
         )
       );
@@ -76,10 +78,10 @@ module.exports = {
 
     if (!args[0]) {
       const card = new ContainerBuilder()
-        .setAccentColor(0x5865F2)
+        .setAccentColor(0x0A0B0E)
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
-            `### ${client.emoji.music || "🎵"} Current Volume: \`${currentVol}%\`\n` +
+            `### ${client.emoji.music || ""} Current Volume: \`${currentVol}%\`\n` +
             `${createVolumeBar(currentVol)}\n\n` +
             `-# Use \`${prefix}volume <0-150>\` to change the volume.`
           )
@@ -89,15 +91,15 @@ module.exports = {
 
     const newVol = parseInt(args[0], 10);
     if (isNaN(newVol) || newVol < 0 || newVol > 150) {
-      return message.reply(warnPayload("Please provide a valid volume level between **0** and **150**%."));
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     await player.setVolume(newVol);
     const card = new ContainerBuilder()
-      .setAccentColor(0x57F287)
+      .setAccentColor(0x35C47C)
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `### ${client.emoji.check || "✅"} Volume set to \`${newVol}%\`\n` +
+          `### ${client.emoji.check || ""} Volume set to \`${newVol}%\`\n` +
           `${createVolumeBar(newVol)}`
         )
       );

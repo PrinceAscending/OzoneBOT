@@ -40,22 +40,28 @@ async function handleSessionError(error, player, client) {
 
 async function recreatePlayer(client, guildId, voiceId, textId) {
     try {
-        if (client.manager.players.has(guildId)) {
-            client.manager.players.delete(guildId);
+        const existing = client.manager?.players?.get(guildId);
+        if (existing) {
+            await safeDestroyPlayer(existing);
+            await new Promise(resolve => setTimeout(resolve, 600));
         }
 
+        const guild = client.guilds.cache.get(guildId);
         const newPlayer = await client.manager.createPlayer({
             guildId: guildId,
             voiceId: voiceId,
             textId: textId,
             volume: 80,
             deaf: true,
+            shardId: guild?.shardId,
         });
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
 
         if (!newPlayer || !client.manager.players.get(guildId)) {
             throw new Error("Failed to recreate player - connection timeout");
+        }
+
+        if (client.voiceHealthMonitor && newPlayer) {
+            client.voiceHealthMonitor.startMonitoring(newPlayer);
         }
 
         return newPlayer;

@@ -101,7 +101,7 @@ function stationCard(client, player, station, extras = {}) {
   return new ContainerBuilder()
     .setAccentColor(station.color)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(
-      `### ${emoji.autoplay || "📡"} ${station.label} — OZONE Radio\n` +
+      `### ${emoji.autoplay || ""} ${station.label} — OZONE Radio\n` +
       `-# ${station.desc}${requester}`,
     ))
     .addSeparatorComponents(new SeparatorBuilder())

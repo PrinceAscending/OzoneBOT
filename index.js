@@ -23,9 +23,13 @@ process.env.SHELL = process.platform === "win32" ? "powershell" : "bash";
 
 // Improved Error Handling with Logger
 process.on("unhandledRejection", (reason, p) => {
-  // Filter known Lavalink/Undici timeouts to avoid log spam
+  // Filter known Lavalink/Undici timeouts and Kazagumo duplicate connect to avoid log spam
   if (reason && (reason.code === 'UND_ERR_CONNECT_TIMEOUT' || (reason.message && reason.message.includes('fetch failed')))) {
     Logger.log("[Lavalink Error] Connection timeout or fetch failed. Node might be down.", "warn");
+    return;
+  }
+  if (reason && reason.message && reason.message.includes('Player is already connected')) {
+    Logger.log("[Kazagumo] Player already connected, ignoring duplicate connect call.", "debug");
     return;
   }
 

@@ -200,7 +200,7 @@ async function handleAIModeMessage(client, message) {
     lastActivity.delete(userId);
     await message.reply({
       components: [display(
-        `**${client.emoji.warn || "⚠️"} AI mode timed out** (2 min of silence). ` +
+        `**${client.emoji.warn || ""} AI mode timed out** (2 min of silence). ` +
         `Dobara on karne ke liye \`/ai\` ya \`^ai\` use karo.`
       )],
       flags: MessageFlags.IsComponentsV2,

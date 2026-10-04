@@ -7,13 +7,14 @@ const {
 } = require("discord.js");
 const IgnoreChannelModel = require("../../schema/ignorechannel");
 const emoji = require("../../emojis");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
   name: "ignore",
   aliases: ["ig"],
   category: "Config",
-  description: "Ignorechannel",
-  usage: "",
+  description: "Configure ignored channels where bot commands are disabled.",
+  usage: "add/remove/list/reset",
   userPerms: [],
   args: false,
   cooldown: 3,
@@ -105,34 +106,7 @@ module.exports = {
     }
 
     if (!args[0]) {
-      const usageDisplay = new TextDisplayBuilder()
-        .setContent(` \`\`\`[] = Optional Argument\n<> = Required Argument\nDo NOT type these when using commands!\`\`\``);
-
-      const separator1 = new SeparatorBuilder();
-
-      const aliasesDisplay = new TextDisplayBuilder()
-        .setContent(`**Aliases:** \`\`[ignore]\`\``);
-
-      const usageInfoDisplay = new TextDisplayBuilder()
-        .setContent(`**Usage:** \`\`add/remove/list/reset\`\``);
-
-      const separator2 = new SeparatorBuilder();
-
-      const footerDisplay = new TextDisplayBuilder()
-        .setContent(`Requested By ${message.author.displayName}`);
-
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(usageDisplay)
-        .addSeparatorComponents(separator1)
-        .addTextDisplayComponents(aliasesDisplay)
-        .addTextDisplayComponents(usageInfoDisplay)
-        .addSeparatorComponents(separator2)
-        .addTextDisplayComponents(footerDisplay);
-
-      return message.channel.send({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2
-      });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     const option = args[0].toLowerCase();

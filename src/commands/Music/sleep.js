@@ -9,6 +9,7 @@ const {
 } = require("discord.js");
 const Wait = require("util").promisify(setTimeout);
 const TwoFourSeven = require("../../schema/247");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
     name: "sleep",
@@ -181,22 +182,7 @@ module.exports = {
 
         // Parse duration
         if (!args[0]) {
-            const usageDisplay = new TextDisplayBuilder()
-                .setContent(
-                    `**${client.emoji.info} Sleep Timer**\n\n` +
-                    `**${client.emoji.dot} Usage** \`:\` \`${prefix}sleep [time]\`\n` +
-                    `**${client.emoji.dot} Examples** \`:\`\n` +
-                    `  \`${prefix}sleep 30m\` \`${prefix}sleep 1h\`\n` +
-                    `**${client.emoji.dot} Cancel** \`:\` \`${prefix}sleep cancel\``
-                );
-
-            const container = new ContainerBuilder()
-                .addTextDisplayComponents(usageDisplay);
-
-            return message.reply({
-                components: [container],
-                flags: MessageFlags.IsComponentsV2
-            });
+            return message.reply(formatCommandHelp(this, message.author, prefix));
         }
 
         const duration = parseDuration(args[0]);

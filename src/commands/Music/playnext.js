@@ -7,12 +7,17 @@ const {
 } = require("discord.js");
 const UserPreferences = require("../../schema/userpreferences");
 const { handleSongAutocomplete } = require("../../utils/songAutocomplete");
+const { formatCommandHelp } = require("../../utils/commandHelp");
+const { safeDestroyPlayer } = require("../../utils/playerUtils");
 
 module.exports = {
   name: "playnext",
   aliases: ["pn", "playnext"],
   category: "Music",
   cooldown: 3,
+  keepAlive: true,
+  args: true,
+  usage: "<song name | URL>",
   description: "Searches for a song and plays it next in the queue.",
   inVoiceChannel: true,
   sameVoiceChannel: true,
@@ -57,7 +62,7 @@ module.exports = {
     try {
       const { hasAvailableNodes } = require("../../utils/nodeUtils");
 
-      if (!hasAvailableNodes(client.manager)) {
+      if (!(await hasAvailableNodes(client.manager, 7000))) {
         const errorDisplay = new TextDisplayBuilder()
           .setContent(`**${client.emoji.cross} The music server is currently unavailable. Please try again later.**`);
         const container = new ContainerBuilder().addTextDisplayComponents(errorDisplay);
@@ -286,13 +291,7 @@ module.exports = {
     const query = args.join(" ");
 
     if (!query) {
-      const usageDisplay = new TextDisplayBuilder()
-        .setContent(
-          `**${client.emoji.dot} Usage** \`:\` \`${prefix}playnext [Song Name/URL]\`\n` +
-          `**${client.emoji.dot} Example** \`:\` \`${prefix}playnext imagine dragons believer\``
-        );
-      const container = new ContainerBuilder().addTextDisplayComponents(usageDisplay);
-      return message.channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     const channel = message.member.voice.channel;
@@ -318,7 +317,7 @@ module.exports = {
     try {
       const { hasAvailableNodes } = require("../../utils/nodeUtils");
 
-      if (!hasAvailableNodes(client.manager)) {
+      if (!(await hasAvailableNodes(client.manager, 7000))) {
         const errorDisplay = new TextDisplayBuilder()
           .setContent(`**${client.emoji.cross} The music server is currently unavailable. Please try again later.**`);
         const container = new ContainerBuilder().addTextDisplayComponents(errorDisplay);
@@ -533,14 +532,7 @@ module.exports = {
       // queued — otherwise a transient failure (slow search, one bad track)
       // would wipe an already-working queue. Mirrors the guard in play.js.
       if (player && playerCreated && player.queue.length === 0 && !player.queue.current) {
-        try {
-          await player.destroy();
-        } catch (destroyError) {
-          console.error("Failed to destroy player:", destroyError);
-          if (client.manager.players.has(message.guild.id)) {
-            client.manager.players.delete(message.guild.id);
-          }
-        }
+        await safeDestroyPlayer(player).catch(() => {});
       }
     }
   },

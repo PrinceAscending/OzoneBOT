@@ -73,77 +73,17 @@ class VoiceHealthMonitor {
 
             const botMember = guild.members.cache.get(this.client.user.id);
             if (!botMember?.voice?.channelId) {
-
                 const TwoFourSeven = require('../schema/247');
                 const twoFourSeven = await TwoFourSeven.findOne({ Guild: player.guildId });
 
                 if (twoFourSeven) {
                     this.client.logger?.log(
-                        `[VoiceHealth] Bot not in VC but 247 enabled for guild ${player.guildId}, attempting reconnect`,
+                        `[VoiceHealth] Bot not in VC but 247 enabled for guild ${player.guildId}, executing guarded reconnect`,
                         'log'
                     );
 
-                    try {
-
-                        await player.setVoiceChannel(twoFourSeven.VoiceId);
-
-
-                        if (player.state === PlayerState.DISCONNECTED || player.state === PlayerState.DESTROYED) {
-                            try {
-                                player.connect();
-                            } catch (connectError) {
-                                // connect() throws if the player is already connected —
-                                // treat that as success and continue.
-                                if (!connectError.message?.includes('already connected')) throw connectError;
-                            }
-                        }
-
-                        this.client.logger?.log(
-                            `[VoiceHealth] Successfully reconnected 247 player for guild ${player.guildId}`,
-                            'log'
-                        );
-
-                        if (player.data) {
-                            player.data.delete('reconnectAttempts');
-                            player.data.delete('reconnectTimeout');
-                        }
-
-                        return;
-                    } catch (reconnectError) {
-
-                        if (reconnectError.message?.includes('already connected')) {
-                            this.client.logger?.log(
-                                `[VoiceHealth] Player already connected for guild ${player.guildId}`,
-                                'debug'
-                            );
-                            return;
-                        }
-
-                        const attempts = (player.data?.get('reconnectAttempts') || 0) + 1;
-                        player.data?.set('reconnectAttempts', attempts);
-
-                        this.client.logger?.log(
-                            `[VoiceHealth] Failed to reconnect 247 player (attempt ${attempts}): ${reconnectError.message}. Retrying in 15s...`,
-                            'error'
-                        );
-
-                        const existingTimeout = player.data?.get('reconnectTimeout');
-                        if (existingTimeout) {
-                            clearTimeout(existingTimeout);
-                        }
-
-                        const retryTimeout = setTimeout(async () => {
-                            this.client.logger?.log(
-                                `[VoiceHealth] Retrying 247 reconnection for guild ${player.guildId}`,
-                                'log'
-                            );
-                            await this.performHealthCheck(player);
-                        }, 15000);
-
-                        player.data?.set('reconnectTimeout', retryTimeout);
-
-                        return;
-                    }
+                    await this.client.reconnect247Guild(player.guildId);
+                    return;
                 }
 
                 this.client.logger?.log(
@@ -154,32 +94,24 @@ class VoiceHealthMonitor {
                 return;
             }
 
-
             if (botMember.voice.channelId !== player.voiceId) {
-
                 const TwoFourSeven = require('../schema/247');
                 const twoFourSeven = await TwoFourSeven.findOne({ Guild: player.guildId });
 
-                if (twoFourSeven && twoFourSeven.VoiceId === player.voiceId) {
+                if (twoFourSeven && twoFourSeven.VoiceId === botMember.voice.channelId) {
+                    player.voiceId = botMember.voice.channelId;
                     this.client.logger?.log(
-                        `[VoiceHealth] Bot in different VC but 247 enabled, updating player for guild ${player.guildId}`,
+                        `[VoiceHealth] Synchronized player voiceId with active VC for guild ${player.guildId}`,
+                        'debug'
+                    );
+                    return;
+                } else if (twoFourSeven) {
+                    this.client.logger?.log(
+                        `[VoiceHealth] Bot in different VC than 24/7 channel for guild ${player.guildId}, rejoining 24/7 channel`,
                         'log'
                     );
-
-                    try {
-
-                        player.setVoiceChannel(twoFourSeven.VoiceId);
-                        this.client.logger?.log(
-                            `[VoiceHealth] Updated player voice channel for guild ${player.guildId}`,
-                            'log'
-                        );
-                        return;
-                    } catch (updateError) {
-                        this.client.logger?.log(
-                            `[VoiceHealth] Failed to update player voice channel: ${updateError.message}`,
-                            'error'
-                        );
-                    }
+                    await this.client.reconnect247Guild(player.guildId);
+                    return;
                 }
 
                 this.client.logger?.log(

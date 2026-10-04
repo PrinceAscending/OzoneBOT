@@ -5,12 +5,14 @@ const {
 } = require("discord.js");
 const SongAlert = require("../../schema/songalert");
 const { successPayload, warnPayload, infoPayload } = require("../../utils/responses");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
   name: "notify",
   aliases: ["alert", "songalert", "tracknotify"],
   category: "Music",
   description: "Get notified whenever your favorite song or artist starts playing in this server.",
+  usage: "add <keyword> | remove <keyword> | list | clear",
   cooldown: 5,
   botPerms: ["EmbedLinks"],
   slashOptions: [
@@ -70,18 +72,8 @@ module.exports = {
     const action = args[0]?.toLowerCase();
     const keyword = args.slice(1).join(" ").toLowerCase().trim();
 
-    if (!action) {
-      const usage = new ContainerBuilder().addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `### 🔔 Song & Artist Alerts\n` +
-          `Receive automatic notifications when your favorite tracks play!\n\n` +
-          `\`${prefix}notify add <artist or song>\` — Subscribe to alerts\n` +
-          `\`${prefix}notify remove <keyword>\` — Remove an alert\n` +
-          `\`${prefix}notify list\` — List active alerts\n` +
-          `\`${prefix}notify clear\` — Clear all alerts`
-        )
-      );
-      return message.reply({ components: [usage], flags: MessageFlags.IsComponentsV2 });
+    if (!action || !["add", "set", "remove", "delete", "del", "list", "show", "clear"].includes(action)) {
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     return handleNotify({
@@ -139,12 +131,12 @@ async function handleNotify({ client, guild, user, action, keyword, prefix = "^"
       return reply(infoPayload("You don't have any active song alerts in this server. Add one with `/notify add <keyword>`."));
     }
 
-    const list = alerts.map((a, i) => `\`${i + 1}.\` 🔔 **${a.keyword}**`).join("\n");
+    const list = alerts.map((a, i) => `\`${i + 1}.\` **${a.keyword}**`).join("\n");
     const card = new ContainerBuilder()
       .setAccentColor(0x5865F2)
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `### 🔔 Your Active Alerts (${alerts.length})\n${list}\n\n` +
+          `### ${client.emoji?.info || ""} Your Active Alerts (${alerts.length})\n${list}\n\n` +
           `-# You will receive a notification whenever any song matching these keywords starts playing.`
         )
       );

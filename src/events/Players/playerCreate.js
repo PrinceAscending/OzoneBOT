@@ -4,6 +4,7 @@ const { syncVoiceChannelStatus } = require("../../utils/voiceChannelStatus");
 module.exports = {
   name: "playerCreate",
   run: async (client, player) => {
+    player.state = 1;
     if (!player.data) player.data = new Map();
     if (!player.data.get("volumeUiHook")) {
       const setVolume = player.setVolume.bind(player);

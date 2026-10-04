@@ -9,6 +9,7 @@ const {
   ButtonStyle,
 } = require("discord.js");
 const { convertTime } = require("../../utils/convert.js");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 const URL_REGEX = /^https?:\/\//i;
 const URL_HOSTS = ["youtube.com", "youtu.be", "spotify.com", "music.apple.com", "deezer.com", "jiosaavn.com"];
@@ -33,6 +34,8 @@ module.exports = {
   description: "Search for a song and pick from the results",
   category: "Music",
   cooldown: 5,
+  args: true,
+  usage: "<query>",
   player: true,
   inVoiceChannel: true,
   sameVoiceChannel: true,
@@ -67,21 +70,7 @@ module.exports = {
   async execute(message, args, client, prefix) {
     const query = args.join(" ").trim();
     if (!query) {
-      return message.reply({
-        components: [notice({
-          client,
-          emoji: client.emoji.info,
-          text: `Usage: \`${prefix}search <query>\` or just use \`${prefix}play <query>\`.`,
-        })],
-        flags: MessageFlags.IsComponentsV2,
-      }).catch(() => message.channel.send({
-        components: [notice({
-          client,
-          emoji: client.emoji.info,
-          text: `Usage: \`${prefix}search <query>\` or just use \`${prefix}play <query>\`.`,
-        })],
-        flags: MessageFlags.IsComponentsV2,
-      }));
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     if (isUrl(query)) {

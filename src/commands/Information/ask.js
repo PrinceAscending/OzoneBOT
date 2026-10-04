@@ -1,4 +1,5 @@
 const { MessageFlags } = require("discord.js");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 const {
   askGroq,
   getHistory,
@@ -16,6 +17,7 @@ module.exports = {
   category: "Information",
   aliases: ["chat"],
   cooldown: 3,
+  args: true,
   description: "Ask OZONE AI a one-off question.",
   usage: "<question>",
 
@@ -43,13 +45,7 @@ module.exports = {
   async execute(message, args, client, prefix) {
     const prompt = args.join(" ");
     if (!prompt) {
-      return message.channel.send({
-        components: [display(
-          `**${client.emoji.dot} Usage** \`:\` \`${prefix}ask <question>\`\n` +
-          `**${client.emoji.dot} Example** \`:\` \`${prefix}ask best song for a road trip?\``
-        )],
-        flags: MessageFlags.IsComponentsV2,
-      });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
     await handleAsk(client, message, prompt);
   },

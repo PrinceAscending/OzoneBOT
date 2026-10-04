@@ -7,6 +7,7 @@ const {
 } = require("discord.js");
 const axios = require("axios");
 const { errorPayload, warnPayload } = require("../../utils/responses");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
   name: "soundtrack",
@@ -14,6 +15,8 @@ module.exports = {
   category: "Music",
   description: "AI generates and queues an immersive cinematic soundtrack matching any scene or mood.",
   cooldown: 10,
+  args: true,
+  usage: "<scene description>",
   inVoiceChannel: true,
   sameVoiceChannel: true,
   botPerms: ["EmbedLinks", "Connect", "Speak"],
@@ -44,15 +47,7 @@ module.exports = {
   async execute(message, args, client, prefix) {
     const scene = args.join(" ").trim();
     if (!scene) {
-      const usage = new ContainerBuilder().addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `**${client.emoji.music || "🎬"} Soundtrack Generator**\n` +
-          `Describe a scene to automatically generate and queue a tailored movie/game score!\n\n` +
-          `**Usage:** \`${prefix}soundtrack <scene description>\`\n` +
-          `**Example:** \`${prefix}soundtrack intense spaceship escape into hyperspace\``
-        )
-      );
-      return message.reply({ components: [usage], flags: MessageFlags.IsComponentsV2 });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     return generateAndPlaySoundtrack({
@@ -78,10 +73,10 @@ async function generateAndPlaySoundtrack({ client, guild, voiceChannel, textChan
   }
 
   const waitCard = new ContainerBuilder()
-    .setAccentColor(0x9B59B6)
+    .setAccentColor(0x0A0B0E)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `### 🎬 Composing Soundtrack...\n` +
+        `### Composing Soundtrack...\n` +
         `Analyzing scene: *"${scene.slice(0, 100)}"* — selecting scores and orchestrations...`
       )
     );
@@ -176,10 +171,10 @@ Respond in JSON format only with an array of 4 search queries like: ["Hans Zimme
     .join("\n");
 
   const resultCard = new ContainerBuilder()
-    .setAccentColor(0xE0426E)
+    .setAccentColor(0x0A0B0E)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `### 🎬 OZONE Cinema — Original Soundtrack\n` +
+        `### OZONE Cinema — Original Soundtrack\n` +
         `**Scene:** *"${scene}"*\n` +
         `-# Generated with AI • ${queuedTracks.length} movements queued for <@${user.id}>\n\n` +
         `**Tracklist:**\n${trackList}`

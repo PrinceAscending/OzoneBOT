@@ -17,44 +17,100 @@ function requesterLine(track) {
   return requester.id ? `[${name}](https://discord.com/users/${requester.id})` : name;
 }
 
+function safeButton({ customId, emoji, label, style = ButtonStyle.Secondary, disabled }) {
+  const btn = new ButtonBuilder().setCustomId(customId).setStyle(style);
+  let hasVisual = false;
+  if (emoji && typeof emoji === "string" && emoji.length > 0) {
+    try {
+      btn.setEmoji(emoji);
+      hasVisual = true;
+    } catch {}
+  }
+  if (label) {
+    btn.setLabel(label);
+    hasVisual = true;
+  }
+  if (!hasVisual) {
+    const fallbacks = {
+      loop: "Loop",
+      previous: "Prev",
+      pause: "Pause",
+      skip: "Skip",
+      favourite: "Like",
+      shuffle: "Mix",
+      voldown: "Vol-",
+      stop: "Stop",
+      volup: "Vol+",
+      node_selector: "Node",
+    };
+    btn.setLabel(fallbacks[customId] || customId);
+  }
+  if (disabled !== undefined) {
+    btn.setDisabled(disabled);
+  }
+  return btn;
+}
+
 function controls(client, player, paused) {
-  const loopMode = player.loop || "none";
-  const playback = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("previous")
-      .setEmoji(client.emoji.previous)
-      .setLabel("Previous")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("pause")
-      .setEmoji(paused ? client.emoji.play : client.emoji.pause)
-      .setLabel(paused ? "Resume" : "Pause")
-      .setStyle(paused ? ButtonStyle.Success : ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId("skip")
-      .setEmoji(client.emoji.skip)
-      .setLabel("Skip")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("stop")
-      .setEmoji(client.emoji.stop)
-      .setLabel("Stop")
-      .setStyle(ButtonStyle.Danger),
+  // Row 1: 5-Button Deck (Reference Image exact match: Loop, Prev, Pause/Play, Skip, Favourite)
+  const row1 = new ActionRowBuilder().addComponents(
+    safeButton({
+      customId: "loop",
+      emoji: client.emoji?.loop,
+      style: ButtonStyle.Secondary,
+    }),
+    safeButton({
+      customId: "previous",
+      emoji: client.emoji?.previous,
+      style: ButtonStyle.Secondary,
+    }),
+    safeButton({
+      customId: "pause",
+      emoji: paused ? client.emoji?.play : client.emoji?.pause,
+      style: ButtonStyle.Secondary,
+    }),
+    safeButton({
+      customId: "skip",
+      emoji: client.emoji?.skip,
+      style: ButtonStyle.Secondary,
+    }),
+    safeButton({
+      customId: "favourite",
+      emoji: client.emoji?.favourite || client.emoji?.like,
+      style: ButtonStyle.Secondary,
+    }),
   );
 
-  const modes = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("loop")
-      .setEmoji(client.emoji.loop)
-      .setLabel(loopMode === "none" ? "Loop" : `Loop: ${loopMode}`)
-      .setStyle(loopMode === "none" ? ButtonStyle.Secondary : ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId("autoplay")
-      .setEmoji(client.emoji.autoplay || client.emoji.dance)
-      .setLabel("Autoplay")
-      .setStyle(player.data?.get("autoplay") ? ButtonStyle.Success : ButtonStyle.Secondary),
+  // Row 2: 5-Button Deck (Reference Image exact match: Shuffle, Vol Down, Stop, Vol Up, Filters/Node)
+  const row2 = new ActionRowBuilder().addComponents(
+    safeButton({
+      customId: "shuffle",
+      emoji: client.emoji?.shuffle,
+      style: ButtonStyle.Secondary,
+    }),
+    safeButton({
+      customId: "voldown",
+      emoji: client.emoji?.voldown,
+      style: ButtonStyle.Secondary,
+    }),
+    safeButton({
+      customId: "stop",
+      emoji: client.emoji?.stop,
+      style: ButtonStyle.Secondary,
+    }),
+    safeButton({
+      customId: "volup",
+      emoji: client.emoji?.volup,
+      style: ButtonStyle.Secondary,
+    }),
+    safeButton({
+      customId: "node_selector",
+      emoji: client.emoji?.filters || client.emoji?.config,
+      style: ButtonStyle.Secondary,
+    }),
   );
-  return [playback, modes];
+
+  return [row1, row2];
 }
 
 function createPlayerCard(client, player, track, options = {}) {
@@ -66,14 +122,17 @@ function createPlayerCard(client, player, track, options = {}) {
   const uri = track.uri || "https://discord.com";
 
   const heading = text(`## ${paused ? "Paused" : "Now playing"}\n### [${title}](${uri})`);
+  const nodeName = player.node?.name || player.shoukaku?.node?.name || "Auto";
   const details = text(
     `**Artist**  [${safeLinkLabel(cleanAuthorName(track.author), 45)}](${uri})\n` +
     `**Requested by**  ${requesterLine(track)}\n` +
-    `**Volume**  ${Math.round(player.volume ?? 100)}%  •  **Queue**  ${player.queue?.length || 0} upcoming` +
-    (track?.isStream ? "  •  **LIVE**" : ""),
+    `**Volume**  \`${Math.round(player.volume ?? 100)}%\`  •  **Queue**  \`${player.queue?.length || 0}\`  •  **Node**  \`${nodeName}\`` +
+    (track?.isStream ? "  •  **LIVE**" : "") +
+    (options.dashboardUrl ? `\n-# [Dashboard](${options.dashboardUrl})` : ""),
   );
   const artwork = artworkUrl(track);
-  const cardColor = options.accentColor || player?.data?.get("accentColor") || 0x3F4652;
+  // Pure Obsidian Dark theme by default (0x0A0B0E)
+  const cardColor = options.accentColor || player?.data?.get("accentColor") || 0x0A0B0E;
   const card = container(cardColor);
   if (options.bannerName) {
     card
@@ -92,20 +151,19 @@ function createPlayerCard(client, player, track, options = {}) {
   } else {
     card.addTextDisplayComponents(heading, details);
   }
-  if (typeof position === "number" && position >= 0 && !track?.isStream) {
+
+  // Only render text progress bar if canvas banner is NOT present (canvas banner has embedded scrub bar & timestamps)
+  if (!options.bannerName && typeof position === "number" && position >= 0 && !track?.isStream) {
     const duration = track.length || 0;
     card.addTextDisplayComponents(text(
       `${progressBar(position, duration)} \`${convertTime(position)}\` / \`${convertTime(duration)}\``,
     ));
   }
   if (options.controls) {
-    card.addSeparatorComponents(separator()).addActionRowComponents(...controls(client, player, paused));
-  }
-  if (options.dashboardUrl) {
-    card.addTextDisplayComponents(text(`♪ **Now Playing** — [Open OZONE Dashboard](${options.dashboardUrl})`));
+    return [card, ...controls(client, player, paused)];
   }
 
   return card;
 }
 
-module.exports = { createPlayerCard };
+module.exports = { createPlayerCard, controls };

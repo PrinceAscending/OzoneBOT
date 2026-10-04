@@ -5,6 +5,7 @@ const {
     MessageFlags
 } = require("discord.js");
 const emoji = require("../../emojis");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
     name: "speed",
@@ -13,7 +14,7 @@ module.exports = {
     cooldown: 3,
     description: "Change the playback speed of the current song",
     args: false,
-    usage: "[speed]",
+    usage: "<0.25 - 3.0> | reset",
     userPrams: [],
     botPerms: ["EmbedLinks"],
     dj: true,
@@ -207,26 +208,7 @@ module.exports = {
         const speed = parseFloat(args[0]);
 
         if (isNaN(speed) || speed < 0.25 || speed > 3) {
-            const errorDisplay = new TextDisplayBuilder()
-                .setContent(
-                    `**${client.emoji.cross} Invalid speed value**\n` +
-                    `**Usage** \`:\` \`${prefix}speed [0.25-3.0]\`\n` +
-                    `**Examples** \`:\` \`${prefix}speed 0.5\` (slow) | \`${prefix}speed 1.5\` (fast)\n` +
-                    `**Current speed** \`:\` \`${currentSpeed}x\``
-                );
-
-            const container = new ContainerBuilder()
-                .addTextDisplayComponents(errorDisplay);
-
-            return message.reply({
-                components: [container],
-                flags: MessageFlags.IsComponentsV2
-            }).catch(() =>
-                message.channel.send({
-                    components: [container],
-                    flags: MessageFlags.IsComponentsV2
-                })
-            );
+            return message.reply(formatCommandHelp(this, message.author, prefix));
         }
 
         try {

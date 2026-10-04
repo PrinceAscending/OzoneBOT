@@ -65,14 +65,26 @@ module.exports = {
       });
     }
 
-    await client.manager.createPlayer({
-      guildId: interaction.guild.id,
-      voiceId: interaction.member.voice.channel.id,
-      textId: interaction.channel.id,
-      volume: 100,
-      deaf: true,
-      mute: false,
-    });
+    let createdPlayer;
+    try {
+      createdPlayer = await client.manager.createPlayer({
+        guildId: interaction.guild.id,
+        voiceId: interaction.member.voice.channel.id,
+        textId: interaction.channel.id,
+        volume: 100,
+        deaf: true,
+        mute: false,
+        shardId: interaction.guild.shardId,
+      });
+      if (client.voiceHealthMonitor && createdPlayer) {
+        client.voiceHealthMonitor.startMonitoring(createdPlayer);
+      }
+    } catch (e) {
+      const errDisplay = new TextDisplayBuilder()
+        .setContent(`**${client.emoji.cross || ""} Failed to join voice channel:** ${e.message || "Unknown error"}`);
+      const container = new ContainerBuilder().addTextDisplayComponents(errDisplay);
+      return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    }
 
     const successDisplay = new TextDisplayBuilder()
       .setContent(`**${client.emoji.check} Joined <#${channel.id}> and bound to <#${interaction.channel.id}>**`);
@@ -131,14 +143,26 @@ module.exports = {
       });
     }
 
-    await client.manager.createPlayer({
-      guildId: message.guild.id,
-      voiceId: message.member.voice.channel.id,
-      textId: message.channel.id,
-      volume: 100,
-      deaf: true,
-      mute: false,
-    });
+    let createdPlayer;
+    try {
+      createdPlayer = await client.manager.createPlayer({
+        guildId: message.guild.id,
+        voiceId: message.member.voice.channel.id,
+        textId: message.channel.id,
+        volume: 100,
+        deaf: true,
+        mute: false,
+        shardId: message.guild.shardId,
+      });
+      if (client.voiceHealthMonitor && createdPlayer) {
+        client.voiceHealthMonitor.startMonitoring(createdPlayer);
+      }
+    } catch (e) {
+      const errDisplay = new TextDisplayBuilder()
+        .setContent(`**${client.emoji.cross || ""} Failed to join voice channel:** ${e.message || "Unknown error"}`);
+      const container = new ContainerBuilder().addTextDisplayComponents(errDisplay);
+      return message.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    }
 
     const successDisplay = new TextDisplayBuilder()
       .setContent(

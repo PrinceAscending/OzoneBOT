@@ -13,6 +13,8 @@ const NoPrefixSchema = require("../../schema/noprefix");
 const DJRoleSchema = require("../../schema/djrole");
 const { handleAIModeMessage } = require("../../utils/ai");
 const { sendWebhook } = require("../../utils/webhooks");
+const { formatCommandHelp } = require("../../utils/commandHelp");
+const { cleanBotReply, cleanUserCommand } = require("../../utils/autoClean");
 const cooldowns = new Map();
 
 module.exports = {
@@ -178,21 +180,8 @@ module.exports = {
     }
 
     if (command.args && !args.length) {
-      let reply = `You didn't provide any arguments, ${message.author}!`;
-      if (command.usage) {
-        reply += `\nUsage: \`${prefix}${command.name} ${command.usage}\``;
-      }
-
-      const argsDisplay = new TextDisplayBuilder()
-        .setContent(reply);
-
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(argsDisplay);
-
-      return message.channel.send({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2
-      }).catch(() => null);
+      cleanUserCommand(message);
+      return cleanBotReply(message.reply(formatCommandHelp(command, message.author, prefix)), message.guild.id, 15).catch(() => null);
     }
 
     if (command.botPerms && !message.guild.members.me.permissions.has(PermissionsBitField.resolve(command.botPerms || []))) {
@@ -202,10 +191,11 @@ module.exports = {
       const container = new ContainerBuilder()
         .addTextDisplayComponents(permDisplay);
 
-      return message.channel.send({
+      cleanUserCommand(message);
+      return cleanBotReply(message.channel.send({
         components: [container],
         flags: MessageFlags.IsComponentsV2
-      }).catch(() => null);
+      }), message.guild.id, 10).catch(() => null);
     }
 
     if (command.userPerms && !message.member.permissions.has(PermissionsBitField.resolve(command.userPerms || []))) {
@@ -215,10 +205,11 @@ module.exports = {
       const container = new ContainerBuilder()
         .addTextDisplayComponents(permDisplay);
 
-      return message.channel.send({
+      cleanUserCommand(message);
+      return cleanBotReply(message.channel.send({
         components: [container],
         flags: MessageFlags.IsComponentsV2
-      }).catch(() => null);
+      }), message.guild.id, 10).catch(() => null);
     }
 
     if (command.dj) {
@@ -237,10 +228,11 @@ module.exports = {
           const container = new ContainerBuilder()
             .addTextDisplayComponents(djDisplay);
 
-          return message.channel.send({
+          cleanUserCommand(message);
+          return cleanBotReply(message.channel.send({
             components: [container],
             flags: MessageFlags.IsComponentsV2
-          }).catch(() => null);
+          }), message.guild.id, 8).catch(() => null);
         }
       } catch (error) {
         // DB failure: fail open so the DJ gate can't brick commands.
@@ -260,10 +252,11 @@ module.exports = {
       const container = new ContainerBuilder()
         .addTextDisplayComponents(playerDisplay);
 
-      return message.channel.send({
+      cleanUserCommand(message);
+      return cleanBotReply(message.channel.send({
         components: [container],
         flags: MessageFlags.IsComponentsV2
-      }).catch(() => null);
+      }), message.guild.id, 8).catch(() => null);
     }
 
     if (command.inVoiceChannel && !message.member.voice.channel) {
@@ -273,10 +266,11 @@ module.exports = {
       const container = new ContainerBuilder()
         .addTextDisplayComponents(vcDisplay);
 
-      return message.channel.send({
+      cleanUserCommand(message);
+      return cleanBotReply(message.channel.send({
         components: [container],
         flags: MessageFlags.IsComponentsV2
-      }).catch(() => null);
+      }), message.guild.id, 8).catch(() => null);
     }
 
     if (command.sameVoiceChannel && player && message.member.voice.channel?.id !== player.voiceId) {
@@ -286,14 +280,25 @@ module.exports = {
       const container = new ContainerBuilder()
         .addTextDisplayComponents(sameVcDisplay);
 
-      return message.channel.send({
+      cleanUserCommand(message);
+      return cleanBotReply(message.channel.send({
         components: [container],
         flags: MessageFlags.IsComponentsV2
-      }).catch(() => null);
+      }), message.guild.id, 8).catch(() => null);
+    }
+
+    const rawReply = message.reply.bind(message);
+    if (!command.keepAlive) {
+      message.reply = async function (...replyArgs) {
+        const res = await rawReply(...replyArgs);
+        cleanBotReply(res, message.guild.id);
+        return res;
+      };
     }
 
     try {
       await command.execute(message, args, client, prefix);
+      cleanUserCommand(message);
 
       if (client.commandStats) {
         client.commandStats.set(command.name, (client.commandStats.get(command.name) || 0) + 1);
@@ -325,10 +330,11 @@ module.exports = {
         .addTextDisplayComponents(errorDisplay);
 
       try {
-        await message.channel.send({
+        cleanUserCommand(message);
+        cleanBotReply(message.channel.send({
           components: [container],
           flags: MessageFlags.IsComponentsV2
-        });
+        }), message.guild.id, 8);
       } catch (sendError) {
         client.logger.log(`Failed to send error message: ${sendError}`, "error");
       }

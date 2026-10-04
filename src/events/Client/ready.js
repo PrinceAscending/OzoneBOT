@@ -114,35 +114,12 @@ module.exports = {
         const slice = entries.slice(i, i + BATCH);
         await Promise.allSettled(slice.map(async (data) => {
           try {
-            // Skip guilds that already have a live player (e.g. created by the
-            // Node/ready reconnect path) — prevents a double createPlayer race.
-            if (client.manager.players.get(data.Guild)) return;
+            const p = client.manager?.players?.get(data.Guild);
+            const guild = client.guilds.cache.get(data.Guild);
+            const botMember = guild?.members?.me || guild?.members?.cache?.get(client.user?.id);
+            if (p && p.state !== 4 && p.state !== 5 && botMember?.voice?.channelId === data.VoiceId) return;
 
-            const text = client.channels.cache.get(data.TextId);
-            const voice = client.channels.cache.get(data.VoiceId);
-            if (!text || !voice) return;
-
-            const guild = voice.guild;
-            const me = guild.members.cache.get(client.user.id);
-            if (!me) return;
-            const perms = voice.permissionsFor(me);
-            if (!perms || !perms.has(["Connect", "Speak"])) return;
-
-            let player = client.manager.players.get(data.Guild);
-            if (player) return;
-
-            player = await client.manager.createPlayer({
-              guildId: data.Guild,
-              voiceId: data.VoiceId,
-              textId: data.TextId,
-              deaf: true,
-              volume: 80,
-            });
-            client.voiceHealthMonitor?.startMonitoring(player);
-            client.logger.log(
-              `Auto Reconnect (clientReady): joined ${voice.name} in ${guild.name}`,
-              "ready"
-            );
+            await client.reconnect247Guild(data.Guild);
           } catch (e) {
             client.logger.log(
               `[247 Reconnect] failed for guild ${data.Guild}: ${e?.message || e}`,

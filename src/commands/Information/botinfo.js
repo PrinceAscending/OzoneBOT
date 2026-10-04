@@ -44,18 +44,19 @@ function buildBotInfoCard(client) {
   const memory = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
   const ping = Math.round(client.ws.ping);
 
-  const header = `### ⚡ OZONE v1.0.0 — System Specifications\n` +
+  const dot = client.emoji?.dot ? `${client.emoji.dot} ` : "";
+  const header = `### OZONE v1.0.0 — System Specifications\n` +
     `-# High Performance Discord Music & AI Bot powered by Lavalink`;
 
   const stats =
-    `**🌐 Servers:** \`${totalGuilds.toLocaleString()}\` servers\n` +
-    `**👥 Listeners:** \`${totalUsers.toLocaleString()}\` users\n` +
-    `**🎵 Active Players:** \`${totalPlayers}\` streams\n` +
-    `**⏱️ Uptime:** \`${uptime}\`\n` +
-    `**📶 Latency:** \`${ping}ms\`\n` +
-    `**💾 RAM Usage:** \`${memory} MB\`\n` +
-    `**⚙️ Platform:** \`Node.js ${process.version}\` • \`discord.js v${djsVersion}\`\n` +
-    `**🖥️ Cluster:** \`#${client.clusterInfo?.CLUSTER ?? 0}\` / \`${client.clusterInfo?.CLUSTER_COUNT ?? 1}\``;
+    `${dot}**Servers:** \`${totalGuilds.toLocaleString()}\` servers\n` +
+    `${dot}**Listeners:** \`${totalUsers.toLocaleString()}\` users\n` +
+    `${dot}**Active Players:** \`${totalPlayers}\` streams\n` +
+    `${dot}**Uptime:** \`${uptime}\`\n` +
+    `${dot}**Latency:** \`${ping}ms\`\n` +
+    `${dot}**RAM Usage:** \`${memory} MB\`\n` +
+    `${dot}**Platform:** \`Node.js ${process.version}\` • \`discord.js v${djsVersion}\`\n` +
+    `${dot}**Cluster:** \`#${client.clusterInfo?.CLUSTER ?? 0}\` / \`${client.clusterInfo?.CLUSTER_COUNT ?? 1}\``;
 
   const section = new SectionBuilder()
     .addTextDisplayComponents(
@@ -69,7 +70,7 @@ function buildBotInfoCard(client) {
   }
 
   const container = new ContainerBuilder()
-    .setAccentColor(0x3F4652)
+    .setAccentColor(0x0A0B0E)
     .addSectionComponents(section);
 
   return container;

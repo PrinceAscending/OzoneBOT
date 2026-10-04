@@ -10,6 +10,7 @@ const {
 } = require("discord.js");
 const BattleScore = require("../../schema/battle");
 const { errorPayload, warnPayload, successPayload } = require("../../utils/responses");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
   name: "challenge",
@@ -17,6 +18,7 @@ module.exports = {
   category: "Music",
   description: "Challenge another listener to a 1v1 Music Battle — the VC votes on who has better music taste!",
   cooldown: 15,
+  usage: "@user <your song choice> | leaderboard",
   inVoiceChannel: true,
   sameVoiceChannel: true,
   botPerms: ["EmbedLinks", "Connect", "Speak"],
@@ -76,15 +78,7 @@ module.exports = {
 
     const opponentMention = message.mentions.users.first();
     if (!opponentMention) {
-      const usage = new ContainerBuilder().addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `### ⚔️ Music Battles (1v1)\n` +
-          `Challenge a friend to a music face-off! Both players pick a song, the VC votes on the best track!\n\n` +
-          `**Usage:** \`${prefix}challenge @user <your song choice>\`\n` +
-          `**Leaderboard:** \`${prefix}challenge leaderboard\``
-        )
-      );
-      return message.reply({ components: [usage], flags: MessageFlags.IsComponentsV2 });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     const songQuery = args.slice(1).join(" ").trim();
@@ -108,22 +102,21 @@ async function getLeaderboardCard(guild) {
   const scores = await BattleScore.find({ guildId: guild.id }).sort({ wins: -1 }).limit(10).lean();
   if (!scores.length) {
     return new ContainerBuilder().addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`**⚔️ No music battle champions yet in ${guild.name}!** Start a battle with \`/challenge\`.`)
+      new TextDisplayBuilder().setContent(`**No music battle champions yet in ${guild.name}!** Start a battle with \`/challenge\`.`)
     );
   }
 
-  const medals = ["🥇", "🥈", "🥉"];
   const list = scores.map((s, i) => {
-    const medal = medals[i] || `\`${i + 1}.\``;
+    const medal = `\`#${i + 1}\``;
     const winRate = s.totalBattles > 0 ? Math.round((s.wins / s.totalBattles) * 100) : 0;
     return `${medal} <@${s.userId}> — **${s.wins}** wins (${winRate}% win rate, ${s.totalBattles} battles)`;
   }).join("\n");
 
   return new ContainerBuilder()
-    .setAccentColor(0xF1C40F)
+    .setAccentColor(0x0A0B0E)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `### 🏆 Music Battle Arena Leaderboard — ${guild.name.slice(0, 30)}\n${list}`
+        `### Music Battle Arena Leaderboard — ${guild.name.slice(0, 30)}\n${list}`
       )
     );
 }
@@ -168,10 +161,10 @@ async function startBattleFlow({ client, guild, channel, challenger, opponent, c
 
   // 2. Prompt opponent to accept and provide their track
   const inviteCard = new ContainerBuilder()
-    .setAccentColor(0xE74C3C)
+    .setAccentColor(0x0A0B0E)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `### ⚔️ Music Battle Challenge!\n` +
+        `### Music Battle Challenge!\n` +
         `<@${challenger.id}> has challenged <@${opponent.id}> to a 1v1 Music Duel!\n\n` +
         `**Challenger Pick:** *[${cTrack.title.slice(0, 40)}](${cTrack.uri})*\n\n` +
         `<@${opponent.id}>, click **Accept Challenge** and reply in chat with your track title within 60s!`
@@ -205,7 +198,7 @@ async function startBattleFlow({ client, guild, channel, challenger, opponent, c
       return interaction.update({
         components: [
           new ContainerBuilder().addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(`**${client.emoji.info || "ℹ️"} Battle declined by <@${opponent.id}>.**`)
+            new TextDisplayBuilder().setContent(`**${client.emoji.info || ""} Battle declined by <@${opponent.id}>.**`)
           ),
         ],
         flags: MessageFlags.IsComponentsV2,
@@ -215,7 +208,7 @@ async function startBattleFlow({ client, guild, channel, challenger, opponent, c
     await interaction.update({
       components: [
         new ContainerBuilder().addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`**${client.emoji.check || "✅"} Challenge Accepted!** <@${opponent.id}>, type your song name in this channel now!`)
+          new TextDisplayBuilder().setContent(`**${client.emoji.check || ""} Challenge Accepted!** <@${opponent.id}>, type your song name in this channel now!`)
         ),
       ],
       flags: MessageFlags.IsComponentsV2,
@@ -233,7 +226,7 @@ async function startBattleFlow({ client, guild, channel, challenger, opponent, c
         return channel.send({
           components: [
             new ContainerBuilder().addTextDisplayComponents(
-              new TextDisplayBuilder().setContent(`**${client.emoji.cross || "❌"} Could not find "${oppQuery}". Battle cancelled.**`)
+              new TextDisplayBuilder().setContent(`**${client.emoji.cross || ""} Could not find "${oppQuery}". Battle cancelled.**`)
             ),
           ],
           flags: MessageFlags.IsComponentsV2,
@@ -245,14 +238,14 @@ async function startBattleFlow({ client, guild, channel, challenger, opponent, c
 
       const voteCard = () => {
         return new ContainerBuilder()
-          .setAccentColor(0x3498DB)
+          .setAccentColor(0x0A0B0E)
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-              `### 🥊 Music Duel: Voting Open (45s)!\n` +
+              `### Music Duel: Voting Open (45s)!\n` +
               `Who picked the superior track? Everyone in VC, cast your vote!\n\n` +
-              `🟦 **Player 1 (<@${challenger.id}>):** [${cTrack.title.slice(0, 35)}](${cTrack.uri})\n` +
+              `**Player 1 (<@${challenger.id}>):** [${cTrack.title.slice(0, 35)}](${cTrack.uri})\n` +
               `> Votes: **${votes.challenger.size}**\n\n` +
-              `🟥 **Player 2 (<@${opponent.id}>):** [${oppTrack.title.slice(0, 35)}](${oppTrack.uri})\n` +
+              `**Player 2 (<@${opponent.id}>):** [${oppTrack.title.slice(0, 35)}](${oppTrack.uri})\n` +
               `> Votes: **${votes.opponent.size}**`
             )
           );
@@ -318,16 +311,16 @@ async function startBattleFlow({ client, guild, channel, challenger, opponent, c
         }
 
         const winnerText = winner
-          ? `🏆 **Winner: <@${winner.id}>!** Crowned the music taste champion with **${Math.max(votes.challenger.size, votes.opponent.size)}** votes!`
-          : `🤝 **It's a Tie!** Both listeners earned **${votes.challenger.size}** votes!`;
+          ? `**Winner: <@${winner.id}>!** Crowned the music taste champion with **${Math.max(votes.challenger.size, votes.opponent.size)}** votes!`
+          : `**It's a Tie!** Both listeners earned **${votes.challenger.size}** votes!`;
 
         const endCard = new ContainerBuilder()
-          .setAccentColor(winner ? 0x2ECC71 : 0x95A5A6)
+          .setAccentColor(0x0A0B0E)
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-              `### 🏁 Battle Concluded!\n\n` +
-              `🟦 <@${challenger.id}>: **${votes.challenger.size}** votes\n` +
-              `🟥 <@${opponent.id}>: **${votes.opponent.size}** votes\n\n` +
+              `### Battle Concluded!\n\n` +
+              `<@${challenger.id}>: **${votes.challenger.size}** votes\n` +
+              `<@${opponent.id}>: **${votes.opponent.size}** votes\n\n` +
               `${winnerText}\n\n` +
               `-# Check rankings anytime with \`/challenge leaderboard:true\``
             )

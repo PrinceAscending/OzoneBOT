@@ -48,7 +48,6 @@ async function analyzeMood({ client, guild, player, reply }) {
 
   let moodData = {
     mood: "Euphoric Vibes",
-    emoji: "✨",
     color: 0x9B59B6,
     energy: 78,
     analysis: "Your server is in a creative, upbeat state with a blend of vibrant melodies.",
@@ -110,15 +109,17 @@ Respond strictly in JSON format matching this schema:
   const filled = Math.round((moodData.energy / 100) * energyBarLength);
   const energyBar = `\`[${"■".repeat(filled)}${"—".repeat(energyBarLength - filled)}]\` ${moodData.energy}%`;
 
+  const dot = client.emoji?.dot ? `${client.emoji.dot} ` : "";
+  const dance = client.emoji?.dance ? `${client.emoji.dance} ` : "";
   const card = new ContainerBuilder()
-    .setAccentColor(moodData.color || 0x5865F2)
+    .setAccentColor(0x0A0B0E)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `### ${moodData.emoji} Server Mood Ring — ${guild.name.slice(0, 30)}\n` +
+        `### ${dance}Server Mood Ring — ${guild.name.slice(0, 30)}\n` +
         `**Current Vibe:** \`${moodData.mood}\`\n\n` +
-        `**⚡ Energy Level:** ${energyBar}\n` +
-        `**🔮 Vibe Diagnosis:** ${moodData.analysis}\n\n` +
-        `**💡 AI Curated Next Song:** *${moodData.recommendation}*`
+        `${dot}**Energy Level:** ${energyBar}\n` +
+        `${dot}**Vibe Diagnosis:** ${moodData.analysis}\n\n` +
+        `${dot}**AI Curated Next Song:** *${moodData.recommendation}*`
       )
     );
 

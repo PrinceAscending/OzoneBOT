@@ -41,9 +41,10 @@ function card({ title, description, accentColor, icon, footer } = {}) {
 }
 
 function successPayload(description, options = {}) {
+  const prefix = emoji.check ? `${emoji.check} ` : "";
   const container = card({
     title: options.title,
-    description: `**${emoji.check || "✅"} ${description}**`,
+    description: `**${prefix}${description}**`,
     accentColor: 0x57F287,
     footer: options.footer,
   });
@@ -54,9 +55,10 @@ function successPayload(description, options = {}) {
 }
 
 function errorPayload(description, options = {}) {
+  const prefix = emoji.cross ? `${emoji.cross} ` : "";
   const container = card({
     title: options.title,
-    description: `**${emoji.cross || "❌"} ${description}**`,
+    description: `**${prefix}${description}**`,
     accentColor: 0xED4245,
     footer: options.footer,
   });
@@ -67,9 +69,10 @@ function errorPayload(description, options = {}) {
 }
 
 function warnPayload(description, options = {}) {
+  const prefix = emoji.warn ? `${emoji.warn} ` : "";
   const container = card({
     title: options.title,
-    description: `**${emoji.warn || "⚠️"} ${description}**`,
+    description: `**${prefix}${description}**`,
     accentColor: 0xFEE75C,
     footer: options.footer,
   });
@@ -80,9 +83,10 @@ function warnPayload(description, options = {}) {
 }
 
 function infoPayload(description, options = {}) {
+  const prefix = emoji.info ? `${emoji.info} ` : "";
   const container = card({
     title: options.title,
-    description: `**${emoji.info || "ℹ️"} ${description}**`,
+    description: `**${prefix}${description}**`,
     accentColor: 0x5865F2,
     footer: options.footer,
   });

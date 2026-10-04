@@ -7,14 +7,15 @@ const {
   Routes
 } = require("discord.js");
 const emoji = require("../../emojis");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
   name: "reload",
   category: "Owner",
   aliases: ["rd", "reloadall", "rdall"],
   description: "Reload a single command or all commands (use `all`).",
-  args: false,
-  usage: "<command|all>",
+  args: true,
+  usage: "<command | all>",
   permission: [],
   owner: true,
 
@@ -352,16 +353,7 @@ module.exports = {
     }
 
     if (!args.length) {
-      const errorDisplay = new TextDisplayBuilder()
-        .setContent(`**${client.emoji.warn} Please provide a command name or use \`all\` to reload all commands.**`);
-
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(errorDisplay);
-
-      return message.channel.send({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2
-      });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     const commandName = args[0].toLowerCase();
@@ -372,16 +364,7 @@ module.exports = {
       );
 
     if (!command) {
-      const errorDisplay = new TextDisplayBuilder()
-        .setContent(`**${client.emoji.cross} There is no command with name or alias \`${commandName}\`**`);
-
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(errorDisplay);
-
-      return message.channel.send({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2
-      });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     try {

@@ -2,6 +2,9 @@
 
 const { Kazagumo, Plugins, KazagumoTrack, KazagumoPlayer } = require("kazagumo");
 const { Connectors, LoadType } = require("shoukaku");
+const NodeRouter = require("../engine/NodeRouter");
+const QueuePersistence = require("../engine/QueuePersistence");
+const PlayerMigrationService = require("../engine/PlayerMigrationService");
 
 const searchEngines = {
   DEEZER: "dzsearch",
@@ -15,6 +18,16 @@ const searchEngines = {
 const fallbackEngines = ["ytmsearch", "amsearch", "spsearch", "ytsearch"];
 
 module.exports = function loadPlayerManager(client) {
+  // Initialize resilient multi-node mesh engines
+  client.nodeRouter = new NodeRouter(client);
+  client.queuePersistence = new QueuePersistence(client);
+  client.migrationService = new PlayerMigrationService(client);
+
+  const shoukakuOptions = {
+    ...client.config.node_options,
+    nodeResolver: (nodes, connection) => client.nodeRouter.getOptimalNode(connection?.guildId),
+  };
+
   const manager = new Kazagumo(
     {
       defaultSearchEngine: client.config.node_source,
@@ -25,8 +38,36 @@ module.exports = function loadPlayerManager(client) {
     },
     new Connectors.DiscordJS(client),
     client.config.nodes,
-    client.config.node_options
+    shoukakuOptions
   );
+
+  // Wrap createPlayer to automatically honor NodeRouter and user/guild node preferences
+  const originalCreatePlayer = manager.createPlayer.bind(manager);
+  manager.createPlayer = async function (options) {
+    if (!options.nodeName && options.guildId) {
+      const optimal = client.nodeRouter.getOptimalNode(options.guildId);
+      if (optimal) {
+        options.nodeName = optimal.name;
+      }
+    } else if (options.nodeName) {
+      const requested = manager.shoukaku.nodes.get(options.nodeName);
+      if (!requested || requested.state !== 1) {
+        const fallback = client.nodeRouter?.getOptimalNode(options.guildId);
+        if (fallback) {
+          options.nodeName = fallback.name;
+        }
+      }
+    }
+    if (options.shardId === undefined && options.guildId) {
+      const guild = client.guilds.cache.get(options.guildId);
+      if (guild) options.shardId = guild.shardId;
+    }
+    const player = await originalCreatePlayer(options);
+    if (player) {
+      player.state = 1;
+    }
+    return player;
+  };
 
   KazagumoPlayer.prototype.search = function (query, options = {}) {
     return this.kazagumo.search(query, { ...options, nodeName: this.node?.name });
@@ -45,13 +86,13 @@ module.exports = function loadPlayerManager(client) {
     const allNodes = [...this.shoukaku.nodes.values()];
     const connectedNodes = allNodes
       .filter((n) => n.state === 1)
-      .sort((a, b) => (a.stats?.players || 0) - (b.stats?.players || 0));
+      .sort((a, b) => (client.nodeRouter?.calculateScore(a) ?? 0) - (client.nodeRouter?.calculateScore(b) ?? 0));
 
     // Build ordered list of candidate nodes to attempt
     const candidateNodes = [];
     if (options.nodeName) {
       const requestedNode = this.shoukaku.nodes.get(options.nodeName);
-      if (requestedNode) candidateNodes.push(requestedNode);
+      if (requestedNode && requestedNode.state === 1) candidateNodes.push(requestedNode);
     }
     for (const n of connectedNodes) {
       if (!candidateNodes.some((c) => c.name === n.name)) {
@@ -87,7 +128,10 @@ module.exports = function loadPlayerManager(client) {
 
       for (const engine of searchEngineList) {
         const searchQuery = engine ? `${engine}:${resolvedQuery}` : resolvedQuery;
-        const res = await node.rest.resolve(searchQuery).catch(() => null);
+        const res = await node.rest.resolve(searchQuery).catch((err) => {
+          client.nodeRouter?.addPenalty(node.name, 15);
+          return null;
+        });
 
         if (res && res.loadType !== LoadType.ERROR && res.data) {
           const result = processSearchResult(res, options.requester);
@@ -102,23 +146,26 @@ module.exports = function loadPlayerManager(client) {
   };
 
   function processSearchResult(res, requester) {
-    switch (res.loadType) {
-      case LoadType.TRACK:
+    const rawType = String(res.loadType || "").toLowerCase();
+    switch (rawType) {
+      case "track":
         return {
           type: "TRACK",
           tracks: [new KazagumoTrack(res.data, requester)]
         };
-      case LoadType.PLAYLIST:
+      case "playlist":
         return {
           type: "PLAYLIST",
-          playlistName: res.data.info.name,
-          tracks: res.data.tracks.map((track) => new KazagumoTrack(track, requester))
+          playlistName: res.data?.info?.name || "Playlist",
+          tracks: (res.data?.tracks || []).map((track) => new KazagumoTrack(track, requester))
         };
-      case LoadType.SEARCH:
+      case "search": {
+        const rawTracks = Array.isArray(res.data) ? res.data : (res.data?.tracks || []);
         return {
           type: "SEARCH",
-          tracks: res.data.map((track) => new KazagumoTrack(track, requester))
+          tracks: rawTracks.map((track) => new KazagumoTrack(track, requester))
         };
+      }
       default:
         return { type: "SEARCH", tracks: [] };
     }

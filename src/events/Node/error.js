@@ -1,3 +1,4 @@
+const { safeDestroyPlayer } = require("../../utils/playerUtils");
 const lastErrorTime = new Map();
 const ERROR_THROTTLE_MS = 60000;
 
@@ -18,25 +19,25 @@ module.exports = {
     }
 
     client.logger.log(`Lavalink "${name}" error ${error}`, "error");
+    client.nodeRouter?.addPenalty(name, 30);
 
     if (error && error.message && error.message.includes('Session not found')) {
-      client.logger.log(`Session lost for node "${name}", cleaning up affected players...`, "warn");
+      client.logger.log(`Session lost for node "${name}", migrating affected players to healthy nodes...`, "warn");
 
-      const players = [...client.manager.players.values()];
+      const affected = [...(client.manager?.players?.values() || [])].filter(
+        (p) => p.shoukaku?.node?.name === name || p.node?.name === name
+      );
 
-      for (const player of players) {
-        try {
-          if (player.shoukaku?.node?.name === name) {
-            client.logger.log(`Cleaning up player for guild ${player.guildId} due to session loss`, "warn");
-
-            client.manager.players.delete(player.guildId);
-
-            if (client.voiceHealthMonitor) {
-              client.voiceHealthMonitor.stopMonitoring(player.guildId);
-            }
+      if (client.migrationService && affected.length > 0) {
+        await client.migrationService.migratePlayersFromNode(name, affected);
+      } else {
+        for (const player of affected) {
+          try {
+            client.voiceHealthMonitor?.stopMonitoring(player.guildId);
+            await safeDestroyPlayer(player);
+          } catch (cleanupError) {
+            client.logger.log(`Error cleaning up player ${player.guildId}: ${cleanupError.message}`, "error");
           }
-        } catch (cleanupError) {
-          client.logger.log(`Error cleaning up player ${player.guildId}: ${cleanupError.message}`, "error");
         }
       }
     }

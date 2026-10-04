@@ -9,6 +9,7 @@ const Prefix = require("../../schema/prefix");
 const { truncate } = require("../../utils/presentation");
 const { container, flags, noticePayload, separator, text } = require("../../utils/ui");
 const { isHttpUrl } = require("../../utils/webhooks");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 const emoji = require("../../emojis");
 
 const CATEGORY_INFO = Object.freeze({
@@ -129,26 +130,7 @@ function categoryView(category, commands, prefix, groups, requester, disabled = 
 }
 
 function commandView(command, prefix, requester) {
-  const options = command.slashOptions || [];
-  const slashUsage = options.map((option) => option.required ? `<${option.name}>` : `[${option.name}]`).join(" ");
-  const aliases = command.aliases?.length ? command.aliases.map((alias) => `\`${alias}\``).join(", ") : "None";
-  const requirements = [
-    command.inVoiceChannel && "Join a voice channel",
-    command.sameVoiceChannel && "Use the bot's voice channel",
-    command.player && "Active player required",
-  ].filter(Boolean).join(" · ") || "None";
-
-  return container()
-    .addTextDisplayComponents(text(`## /${command.name}\n-# ${command.category || "Command"} · ${command.description || "No description provided"}`))
-    .addSeparatorComponents(separator())
-    .addTextDisplayComponents(text(
-      `**Slash usage**\n\`/${command.name}${slashUsage ? ` ${slashUsage}` : ""}\`\n\n` +
-      `**Prefix usage**\n\`${prefix}${command.name}${command.usage ? ` ${command.usage}` : ""}\`\n\n` +
-      `**Aliases**\n${aliases}\n\n` +
-      `**Requirements**\n${requirements}`,
-    ))
-    .addSeparatorComponents(separator())
-    .addTextDisplayComponents(text(`-# Cooldown: ${command.cooldown || 3}s · Requested by ${requester.username}`));
+  return formatCommandHelp(command, requester, prefix).components[0];
 }
 
 async function serverPrefix(client, guildId) {
@@ -220,6 +202,7 @@ module.exports = {
   aliases: ["h", "commands"],
   description: "Browse commands and learn how to use them",
   cooldown: 3,
+  keepAlive: true,
   slashOptions: [{
     name: "command",
     description: "Show details for a specific command",

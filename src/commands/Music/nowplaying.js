@@ -28,10 +28,18 @@ module.exports = {
       return interaction.reply(warnPayload("Nothing is playing right now. Start a song with `/play`!"));
     }
 
-    let banner = player.data?.get("nowPlayingBanner") || null;
-    if (!banner) {
+    let bannerBuffer = player.data?.get("nowPlayingBanner") || null;
+    if (!bannerBuffer) {
       try {
-        banner = await createTrackBanner(track);
+        const position = player.shoukaku?.position || 0;
+        const bannerResult = await createTrackBanner(track, position);
+        if (bannerResult?.buffer) {
+          bannerBuffer = bannerResult.buffer;
+          if (player.data) {
+            player.data.set("cachedArtwork", bannerResult.artwork);
+            player.data.set("nowPlayingBanner", bannerResult.buffer);
+          }
+        }
       } catch (error) {
         client.logger?.log(`[Player banner] ${error.message}`, "warn");
       }
@@ -39,13 +47,13 @@ module.exports = {
 
     const payload = {
       components: [createPlayerCard(client, player, track, {
-        bannerName: banner ? BANNER_NAME : null,
+        bannerName: bannerBuffer ? BANNER_NAME : null,
         controls: true,
         dashboardUrl: dashboardUrl(client, player),
-      })],
+      })].flat(),
       flags: MessageFlags.IsComponentsV2,
     };
-    if (banner) payload.files = [new AttachmentBuilder(banner, { name: BANNER_NAME })];
+    if (bannerBuffer) payload.files = [new AttachmentBuilder(bannerBuffer, { name: BANNER_NAME })];
 
     return interaction.reply(payload);
   },
@@ -57,10 +65,18 @@ module.exports = {
       return message.reply(warnPayload("Nothing is playing right now. Start a song with `^play`!"));
     }
 
-    let banner = player.data?.get("nowPlayingBanner") || null;
-    if (!banner) {
+    let bannerBuffer = player.data?.get("nowPlayingBanner") || null;
+    if (!bannerBuffer) {
       try {
-        banner = await createTrackBanner(track);
+        const position = player.shoukaku?.position || 0;
+        const bannerResult = await createTrackBanner(track, position);
+        if (bannerResult?.buffer) {
+          bannerBuffer = bannerResult.buffer;
+          if (player.data) {
+            player.data.set("cachedArtwork", bannerResult.artwork);
+            player.data.set("nowPlayingBanner", bannerResult.buffer);
+          }
+        }
       } catch (error) {
         client.logger?.log(`[Player banner] ${error.message}`, "warn");
       }
@@ -68,13 +84,13 @@ module.exports = {
 
     const payload = {
       components: [createPlayerCard(client, player, track, {
-        bannerName: banner ? BANNER_NAME : null,
+        bannerName: bannerBuffer ? BANNER_NAME : null,
         controls: true,
         dashboardUrl: dashboardUrl(client, player),
-      })],
+      })].flat(),
       flags: MessageFlags.IsComponentsV2,
     };
-    if (banner) payload.files = [new AttachmentBuilder(banner, { name: BANNER_NAME })];
+    if (bannerBuffer) payload.files = [new AttachmentBuilder(bannerBuffer, { name: BANNER_NAME })];
 
     const response = await message.reply(payload);
     if (!player.data) player.data = new Map();

@@ -18,6 +18,7 @@ const {
   clearVoiceChannelStatus,
   syncVoiceChannelStatus,
 } = require("../../utils/voiceChannelStatus");
+const { safeDestroyPlayer } = require("../../utils/playerUtils");
 
 module.exports = {
   name: "voiceStateUpdate",
@@ -57,112 +58,42 @@ module.exports = {
         const twoFourSeven = await TwoFourSeven.findOne({ Guild: guildId });
 
         if (twoFourSeven) {
-          await Wait(2000);
+          client.logger?.log(`[AutoDestroy] Bot disconnected from VC in 24/7 guild ${guildId}, rejoining safely...`, "debug");
+          await Wait(1200);
 
-          const voiceChannel = guild.channels.cache.get(twoFourSeven.VoiceId);
+          const reconnectedPlayer = await client.reconnect247Guild(guildId);
+          if (reconnectedPlayer) {
+            const textChannel = client.channels.cache.get(twoFourSeven.TextId);
+            if (textChannel) {
+              const display = new TextDisplayBuilder()
+                .setContent(`**${client.emoji.check} Rejoined <#${twoFourSeven.VoiceId}> [247 Mode Active]**`);
 
-          if (voiceChannel && voiceChannel.isVoiceBased()) {
+              const container = new ContainerBuilder()
+                .addTextDisplayComponents(display);
 
-            const existingPlayer = client.manager.players.get(guildId);
-
-            if (!existingPlayer || existingPlayer.state === PlayerState.DESTROYED) {
-              try {
-                const botMember = guild.members.me;
-                if (!botMember) {
-                  console.log(`[247] Bot member not found for guild ${guildId}`);
-                  return;
-                }
-
-                const permissions = voiceChannel.permissionsFor(botMember);
-                if (!permissions || !permissions.has(['Connect', 'Speak'])) {
-                  console.log(`[247] Missing permissions in voice channel ${voiceChannel.id}`);
-                  await TwoFourSeven.findOneAndDelete({ Guild: guildId });
-                  return;
-                }
-
-                const newPlayer = await client.manager.createPlayer({
-                  guildId: guildId,
-                  voiceId: twoFourSeven.VoiceId,
-                  textId: twoFourSeven.TextId,
-                  volume: 80,
-                  deaf: true,
-                  mute: false,
-                });
-
-                await Wait(1000);
-
-                const textChannel = client.channels.cache.get(twoFourSeven.TextId);
-                if (textChannel) {
-                  const display = new TextDisplayBuilder()
-                    .setContent(`**${client.emoji.check} Rejoined <#${twoFourSeven.VoiceId}> [247 Mode Active]**`);
-
-                  const container = new ContainerBuilder()
-                    .addTextDisplayComponents(display);
-
-                  textChannel
-                    .send({
-                      components: [container],
-                      flags: MessageFlags.IsComponentsV2
-                    })
-                    .then((msg) =>
-                      setTimeout(() => msg.delete().catch(() => null), 5000)
-                    )
-                    .catch(() => null);
-                }
-              } catch (createError) {
-                console.error(`Failed to create player for 247 reconnection:`, createError.message || createError);
-                if (createError.message && createError.message.includes('Session not found')) {
-                  console.log(`[247] Lavalink session not found, skipping reconnection for guild ${guildId}`);
-                }
-              }
-            } else {
-              try {
-                await existingPlayer.setVoiceChannel(twoFourSeven.VoiceId);
-                if (existingPlayer.state !== PlayerState.CONNECTED) {
-                  await existingPlayer.connect();
-                }
-
-                const textChannel = client.channels.cache.get(twoFourSeven.TextId);
-                if (textChannel) {
-                  const display = new TextDisplayBuilder()
-                    .setContent(`**${client.emoji.check} Rejoined <#${twoFourSeven.VoiceId}> [247 Mode Active]**`);
-
-                  const container = new ContainerBuilder()
-                    .addTextDisplayComponents(display);
-
-                  textChannel
-                    .send({
-                      components: [container],
-                      flags: MessageFlags.IsComponentsV2
-                    })
-                    .then((msg) =>
-                      setTimeout(() => msg.delete().catch(() => null), 5000)
-                    )
-                    .catch(() => null);
-                }
-              } catch (reconnectError) {
-                console.error(`Failed to reconnect existing player:`, reconnectError.message || reconnectError);
-              }
+              textChannel
+                .send({
+                  components: [container],
+                  flags: MessageFlags.IsComponentsV2
+                })
+                .then((msg) =>
+                  setTimeout(() => msg.delete().catch(() => null), 5000)
+                )
+                .catch(() => null);
             }
-            return;
-          } else {
-            await TwoFourSeven.findOneAndDelete({ Guild: guildId });
           }
+          return;
         }
 
-        if (!player) return;
-        await clearVoiceChannelStatus(client, player);
-
-        await Wait(3000);
-        try {
-          await player?.destroy();
-        } catch (destroyError) {
-          if (client.manager.players.has(guildId)) {
-            client.manager.players.delete(guildId);
-          }
+        const activePlayer = client.manager?.players?.get(guildId);
+        if (activePlayer) {
+          await clearVoiceChannelStatus(client, activePlayer);
+          await safeDestroyPlayer(activePlayer);
         }
+        client.voiceHealthMonitor?.stopMonitoring(guildId);
 
-        const textChannel = client.channels.cache.get(player.textId);
+        const targetTextId = activePlayer?.textId || oldState.channel?.id;
+        const textChannel = client.channels.cache.get(targetTextId);
         if (textChannel) {
           const display = new TextDisplayBuilder()
             .setContent(`**${client.emoji.check} Bot has been disconnected from the Voice Channel**`);
@@ -223,7 +154,7 @@ module.exports = {
     if (
       player &&
       currentChannel &&
-      currentChannel.type === ChannelType.GuildVoice &&
+      currentChannel.isVoiceBased() &&
       currentChannel.members.has(botId)
     ) {
       const humanCount = currentChannel.members.filter((m) => !m.user.bot).size;
@@ -266,7 +197,7 @@ module.exports = {
             (guild
               ? await guild.channels.fetch(activePlayer.voiceId).catch(() => null)
               : null);
-          if (!voiceChannel || voiceChannel.type !== ChannelType.GuildVoice) return;
+          if (!voiceChannel || !voiceChannel.isVoiceBased()) return;
 
           const stillInVC = voiceChannel.members.has(botId);
           const stillAlone =

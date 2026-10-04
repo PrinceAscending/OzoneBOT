@@ -4,6 +4,7 @@ const {
     MessageFlags
 } = require("discord.js");
 const emoji = require("../../emojis");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
     name: "forward",
@@ -74,24 +75,7 @@ module.exports = {
             seconds = parseInt(args[0]);
 
             if (isNaN(seconds) || seconds <= 0) {
-                const errorDisplay = new TextDisplayBuilder()
-                    .setContent(
-                        `**${client.emoji.cross} Usage:** \`${prefix}forward [seconds]\`\n` +
-                        `**Example:** \`${prefix}forward 30\` - Fastforward 30 seconds`
-                    );
-
-                const container = new ContainerBuilder()
-                    .addTextDisplayComponents(errorDisplay);
-
-                return message.reply({
-                    components: [container],
-                    flags: MessageFlags.IsComponentsV2
-                }).catch(() =>
-                    message.channel.send({
-                        components: [container],
-                        flags: MessageFlags.IsComponentsV2
-                    })
-                );
+                return message.reply(formatCommandHelp(this, message.author, prefix));
             }
         }
 

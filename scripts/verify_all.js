@@ -56,5 +56,15 @@ for (const file of fs.readdirSync(utilsDir)) {
 }
 console.log('[+] Utils passed!');
 
+console.log('Checking engine...');
+const engineDir = path.join(rootDir, 'src', 'engine');
+for (const file of fs.readdirSync(engineDir)) {
+  if (file.endsWith('.js')) {
+    console.log('Checking engine module:', file);
+    require(path.join(engineDir, file));
+  }
+}
+console.log('[+] Engine passed!');
+
 console.log('\n[SUCCESS] ALL CHECKS PASSED PERFECTLY!');
 process.exit(0);

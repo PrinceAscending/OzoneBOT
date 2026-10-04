@@ -6,6 +6,7 @@ const {
 const { convertTime } = require("../../utils/convert.js");
 const ms = require("ms");
 const emoji = require("../../emojis");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
   name: "seek",
@@ -14,7 +15,7 @@ module.exports = {
   cooldown: 3,
   description: "Seek the currently playing song",
   args: true,
-  usage: "40 || 1:30 || 10s || 1m || 1h to seek",
+  usage: "<time (e.g. 40, 1:30, 10s, 1m)>",
   userPrams: [],
   botPerms: ["EmbedLinks"],
   dj: true,
@@ -134,16 +135,7 @@ module.exports = {
     }
 
     if (!time || isNaN(time)) {
-      const errorDisplay = new TextDisplayBuilder()
-        .setContent(`**${client.emoji.warn} Invalid time format. Examples: \`40\`, \`1:30\`, \`10s\`, \`1m\`**`);
-
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(errorDisplay);
-
-      return message.channel.send({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2
-      });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     const position = player.shoukaku.position;

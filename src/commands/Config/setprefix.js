@@ -9,9 +9,9 @@ const emoji = require("../../emojis");
 module.exports = {
   name: "setprefix",
   category: "Config",
-  description: "Sets a custom prefix.",
-  args: false,
-  usage: "",
+  description: "Sets a custom prefix for this server.",
+  args: true,
+  usage: "<new-prefix>",
   aliases: ["prefix"],
   botPerms: ["EmbedLinks"],
   userPerms: ["ManageGuild"],
@@ -72,16 +72,8 @@ module.exports = {
     const newPrefix = args.join(" ");
 
     if (!newPrefix) {
-      const infoDisplay = new TextDisplayBuilder()
-        .setContent(`**${client.emoji.info} Provide a new prefix.**`);
-
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(infoDisplay);
-
-      return message.reply({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2
-      });
+      const { formatCommandHelp } = require("../../utils/commandHelp");
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     if (newPrefix.length > 3) {

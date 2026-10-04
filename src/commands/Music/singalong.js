@@ -99,19 +99,19 @@ async function handleSingalong({ client, player, track, user, reply }) {
 
   function renderCard(pageIdx) {
     const textContent =
-      `### 🎤 Karaoke Singalong — [${track.title.slice(0, 45)}](${track.uri})\n` +
+      `### Karaoke Singalong — [${track.title.slice(0, 45)}](${track.uri})\n` +
       `-# Artist: ${track.author} • Page ${pageIdx + 1}/${pages.length}\n\n` +
       pages[pageIdx];
 
     const card = new ContainerBuilder()
-      .setAccentColor(0x9B59B6)
+      .setAccentColor(0x0A0B0E)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(textContent));
 
     if (pages.length > 1) {
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("sing_prev")
-          .setLabel("◀ Previous")
+          .setLabel("Previous")
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(pageIdx === 0),
         new ButtonBuilder()
@@ -121,7 +121,7 @@ async function handleSingalong({ client, player, track, user, reply }) {
           .setDisabled(true),
         new ButtonBuilder()
           .setCustomId("sing_next")
-          .setLabel("Next ▶")
+          .setLabel("Next")
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(pageIdx >= pages.length - 1)
       );

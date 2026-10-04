@@ -6,8 +6,9 @@ const {
   ButtonStyle,
   MessageFlags,
 } = require("discord.js");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
-const EMOJI_NUMBERS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+const EMOJI_NUMBERS = ["1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.", "10."];
 const POLL_DURATION = 60_000;
 
 /* Parse "Question | Option A | Option B | ..." into { question, options }.
@@ -182,15 +183,7 @@ module.exports = {
     const parsed = parsePoll(args.join(" "));
 
     if (!parsed) {
-      const usageDisplay = new TextDisplayBuilder()
-        .setContent(
-          `**${client.emoji.warn} Invalid poll format**\n` +
-          `**Usage** \`:\` \`${prefix}poll <Question> | <Option A> | <Option B>\`\n` +
-          `**Example** \`:\` \`${prefix}poll Best song? | Believer | Thunder | Radioactive\`\n` +
-          `**Options** \`:\` \`2-10\`, separated by \`|\``
-        );
-      const container = new ContainerBuilder().addTextDisplayComponents(usageDisplay);
-      return message.channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     const votes = new Map();

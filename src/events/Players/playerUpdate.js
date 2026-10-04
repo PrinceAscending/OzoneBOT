@@ -1,6 +1,6 @@
 const { refreshNowPlayingMessage } = require("./playerStart");
 
-const UPDATE_THROTTLE_MS = 4000;
+const UPDATE_THROTTLE_MS = 6000;
 
 module.exports = {
   name: "playerUpdate",
@@ -16,6 +16,9 @@ module.exports = {
       return;
     }
 
+    // Live streams do not have an advancing scrub bar; skip periodic edits
+    if (player.queue?.current?.isStream) return;
+
     // Progress is frozen while paused; the pause button already refreshes the card.
     if (player.paused || player.shoukaku?.paused) return;
 
@@ -25,6 +28,7 @@ module.exports = {
     player.data.set("npLastUpdate", now);
 
     const position = player.shoukaku?.position ?? data?.state?.position ?? 0;
+    client.queuePersistence?.savePlayerState(player);
 
     try {
       await refreshNowPlayingMessage(client, player, { position });

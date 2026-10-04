@@ -90,6 +90,7 @@ module.exports = {
   description: "Browse the current track and upcoming queue",
   cooldown: 3,
   player: true,
+  keepAlive: true,
   inVoiceChannel: false,
   sameVoiceChannel: false,
   slashOptions: [],

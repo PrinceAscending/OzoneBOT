@@ -65,7 +65,7 @@ function playlistView(playlist) {
 async function ensurePlayer(message, client) {
   const voice = message.member?.voice?.channel;
   if (!voice) throw Object.assign(new Error("Join a voice channel first."), { code: "NO_VOICE" });
-  if (!hasAvailableNodes(client.manager)) {
+  if (!(await hasAvailableNodes(client.manager, 7000))) {
     throw Object.assign(new Error("The music server is currently unavailable."), { code: "NO_NODE" });
   }
 

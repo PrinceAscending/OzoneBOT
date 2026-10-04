@@ -4,6 +4,7 @@ const {
   MessageFlags
 } = require("discord.js");
 const DJRoleSchema = require("../../schema/djrole");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
   name: "djrole",
@@ -156,15 +157,6 @@ module.exports = {
       });
     }
 
-    const usageDisplay = new TextDisplayBuilder()
-      .setContent(`**Usage:** \`${prefix || client.prefix}djrole set <role> | remove | show\``);
-
-    const container = new ContainerBuilder()
-      .addTextDisplayComponents(usageDisplay);
-
-    return message.reply({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2
-    });
+    return message.reply(formatCommandHelp(this, message.author, prefix));
   }
 };

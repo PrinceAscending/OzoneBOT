@@ -40,16 +40,17 @@ async function buildServerInfoCard(guild, client) {
   const boostCount = guild.premiumSubscriptionCount || 0;
   const boostTier = guild.premiumTier || 0;
 
-  const header = `### ${client.emoji.home || "🏠"} ${guild.name}\n` +
+  const dot = client.emoji?.dot ? `${client.emoji.dot} ` : "";
+  const header = `### ${client.emoji.home || ""} ${guild.name}\n` +
     `-# ID: \`${guild.id}\` • Created on ${formatTimestamp(guild.createdTimestamp)}`;
 
   const details =
-    `**👑 Owner:** ${owner ? `${owner.user.tag} (<@${owner.id}>)` : "Unknown"}\n` +
-    `**👥 Members:** \`${guild.memberCount.toLocaleString()}\` total\n` +
-    `**💬 Channels:** \`${textChannels}\` text • \`${voiceChannels}\` voice (${guild.channels.cache.size} total)\n` +
-    `**🛡️ Roles:** \`${rolesCount}\` roles • **😀 Emojis:** \`${emojisCount}\` emojis\n` +
-    `**🚀 Boost Status:** Level \`${boostTier}\` (\`${boostCount}\` boosts)\n` +
-    `**🔒 Verification Level:** \`${guild.verificationLevel}\``;
+    `${dot}**Owner:** ${owner ? `${owner.user.tag} (<@${owner.id}>)` : "Unknown"}\n` +
+    `${dot}**Members:** \`${guild.memberCount.toLocaleString()}\` total\n` +
+    `${dot}**Channels:** \`${textChannels}\` text • \`${voiceChannels}\` voice (${guild.channels.cache.size} total)\n` +
+    `${dot}**Roles:** \`${rolesCount}\` roles • **Emojis:** \`${emojisCount}\` emojis\n` +
+    `${dot}**Boost Status:** Level \`${boostTier}\` (\`${boostCount}\` boosts)\n` +
+    `${dot}**Verification Level:** \`${guild.verificationLevel}\``;
 
   const section = new SectionBuilder()
     .addTextDisplayComponents(
@@ -63,7 +64,7 @@ async function buildServerInfoCard(guild, client) {
   }
 
   const container = new ContainerBuilder()
-    .setAccentColor(0x5865F2)
+    .setAccentColor(0x0A0B0E)
     .addSectionComponents(section);
 
   return container;

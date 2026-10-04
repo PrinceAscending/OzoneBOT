@@ -6,6 +6,7 @@ const {
 } = require('discord.js');
 const BlacklistSchema = require('../../schema/blacklist');
 const { sendWebhook } = require('../../utils/webhooks');
+const { formatCommandHelp } = require('../../utils/commandHelp');
 
 module.exports = {
     name: 'blacklist',
@@ -90,16 +91,7 @@ module.exports = {
             return checkBlacklist({ client, reply: (o) => message.reply(o), targetId });
         }
 
-        const help = new ContainerBuilder().addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `**${client.emoji.info} Blacklist management**\n` +
-                `\`${client.prefix}blacklist add <@user|id>\` — block a user\n` +
-                `\`${client.prefix}blacklist remove <@user|id>\` — unblock a user\n` +
-                `\`${client.prefix}blacklist check <@user|id>\` — check status\n` +
-                `\`${client.prefix}blacklist list\` — show all blacklisted users`,
-            ),
-        );
-        return message.reply({ components: [help], flags: MessageFlags.IsComponentsV2 });
+        return message.reply(formatCommandHelp(this, message.author, client.prefix));
     },
 };
 
@@ -197,9 +189,9 @@ async function sendBlacklistList({ client, reply }) {
         if (buf) chunks.push(buf);
 
         const container = new ContainerBuilder()
-            .setAccentColor(0xED4245)
+            .setAccentColor(0x0A0B0E)
             .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(`### ${client.emoji.warn || "⚠️"} Blacklisted Users — ${records.length} total`)
+                new TextDisplayBuilder().setContent(`### ${client.emoji.warn || ""} Blacklisted Users — ${records.length} total`)
             )
             .addSeparatorComponents(new SeparatorBuilder());
 

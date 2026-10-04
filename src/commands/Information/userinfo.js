@@ -58,14 +58,15 @@ function buildUserInfoCard(user, member, client) {
     ? roles.join(" ") + (member.roles.cache.size > 16 ? ` +${member.roles.cache.size - 16} more` : "")
     : "No roles";
 
-  const header = `### 👤 ${user.globalName || user.username} (@${user.username})\n` +
+  const dot = client.emoji?.dot ? `${client.emoji.dot} ` : "";
+  const header = `### ${user.globalName || user.username} (@${user.username})\n` +
     `-# ID: \`${user.id}\` • Account created on ${formatTimestamp(user.createdTimestamp)}`;
 
   const details =
-    `**📅 Joined Server:** ${member ? formatTimestamp(member.joinedTimestamp) : "Not in this server"}\n` +
-    `**🤖 Bot Account:** ${user.bot ? "Yes" : "No"}\n` +
-    `**🚀 Boost Status:** ${member?.premiumSince ? `Boosting since ${formatTimestamp(member.premiumSinceTimestamp)}` : "Not boosting"}\n` +
-    `**🛡️ Roles [${member?.roles.cache.size ? member.roles.cache.size - 1 : 0}]:**\n${rolesDisplay}`;
+    `${dot}**Joined Server:** ${member ? formatTimestamp(member.joinedTimestamp) : "Not in this server"}\n` +
+    `${dot}**Bot Account:** ${user.bot ? "Yes" : "No"}\n` +
+    `${dot}**Boost Status:** ${member?.premiumSince ? `Boosting since ${formatTimestamp(member.premiumSinceTimestamp)}` : "Not boosting"}\n` +
+    `${dot}**Roles [${member?.roles.cache.size ? member.roles.cache.size - 1 : 0}]:**\n${rolesDisplay}`;
 
   const section = new SectionBuilder()
     .addTextDisplayComponents(
@@ -79,7 +80,7 @@ function buildUserInfoCard(user, member, client) {
   }
 
   const container = new ContainerBuilder()
-    .setAccentColor(member?.displayColor || 0x5865F2)
+    .setAccentColor(member?.displayColor || 0x0A0B0E)
     .addSectionComponents(section);
 
   return container;

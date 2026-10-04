@@ -4,6 +4,7 @@ const {
     MessageFlags
 } = require("discord.js");
 const emoji = require("../../emojis");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
     name: "rewind",
@@ -85,24 +86,7 @@ module.exports = {
             seconds = parseInt(args[0]);
 
             if (isNaN(seconds) || seconds <= 0) {
-                const usageDisplay = new TextDisplayBuilder()
-                    .setContent(
-                        `**${client.emoji.cross} Usage** \`:\` \`${prefix}rewind [seconds]\`\n` +
-                        `**${client.emoji.dot} Example** \`:\` \`${prefix}rewind 30\` - Rewind 30 seconds`
-                    );
-
-                const container = new ContainerBuilder()
-                    .addTextDisplayComponents(usageDisplay);
-
-                return message.reply({
-                    components: [container],
-                    flags: MessageFlags.IsComponentsV2
-                }).catch(() =>
-                    message.channel.send({
-                        components: [container],
-                        flags: MessageFlags.IsComponentsV2
-                    })
-                );
+                return message.reply(formatCommandHelp(this, message.author, prefix));
             }
         }
 

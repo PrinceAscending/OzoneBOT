@@ -58,22 +58,21 @@ async function buildLeaderboardCard(client, guild, scope = "server") {
   if (!rows.length) {
     return new ContainerBuilder().addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `**${client.emoji.info || "ℹ️"} No listening stats recorded yet for this ${isGlobal ? "network" : "server"}.** Play music to build the chart!`
+        `**${client.emoji.info || ""} No listening stats recorded yet for this ${isGlobal ? "network" : "server"}.** Play music to build the chart!`
       )
     );
   }
 
-  const medals = ["🥇", "🥈", "🥉"];
   const board = rows.map((row, i) => {
-    const medal = medals[i] || `\`${String(i + 1).padStart(2, " ")}.\``;
+    const medal = `\`#${i + 1}\``;
     const hours = formatHours(row.seconds || 0);
     const plays = row.plays || 0;
     return `${medal} <@${row.userId}> — **${hours}** on air · \`${plays}\` track${plays === 1 ? "" : "s"}`;
   }).join("\n");
 
   const title = isGlobal
-    ? `### 🌐 OZONE Global Hall of Fame — All Servers`
-    : `### ${emoji.star || "⭐"} OZONE Listening Chart — ${guild.name.slice(0, 30)}`;
+    ? `### ${emoji.star || ""} OZONE Global Hall of Fame — All Servers`
+    : `### ${emoji.star || ""} OZONE Listening Chart — ${guild.name.slice(0, 30)}`;
 
   const footer = isGlobal
     ? `-# Aggregated listening time across all servers powered by OZONE`

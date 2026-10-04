@@ -34,7 +34,7 @@ const config = {
   SpotifyID: process.env.SPOTIFY_CLIENT_ID || "",
   SpotifySecret: process.env.SPOTIFY_CLIENT_SECRET || "",
   mongourl: process.env.MONGODB_URL || "",
-  color: process.env.BOT_COLOR || "#3F4652",
+  color: process.env.BOT_COLOR || "#0A0B0E",
   logs: process.env.LOG_LEVEL || "info",
   node_source: process.env.LAVALINK_SOURCE || "ytmsearch",
   groqApiKey: process.env.GROQ_API_KEY || "",
@@ -82,34 +82,50 @@ const config = {
 
     const isLocal = (url = "") => url.includes("localhost") || url.includes("127.0.0.1");
 
-    const primary = {
-      name: process.env.LAVALINK_NAME || "Amane-AjieDev-Primary",
-      url: process.env.LAVALINK_URL || "lavalinkv4.serenetia.com:443",
-      auth: process.env.LAVALINK_PASSWORD || "https://seretia.link/discord",
-      secure: boolean(process.env.LAVALINK_SECURE, !isLocal(process.env.LAVALINK_URL)),
+    const isSecureUrl = (url = "") => {
+      if (process.env.LAVALINK_SECURE !== undefined && process.env.LAVALINK_SECURE !== "") {
+        return boolean(process.env.LAVALINK_SECURE);
+      }
+      if (url.includes(":443") || url.startsWith("https://") || url.startsWith("wss://")) return true;
+      if (url.includes(":2333") || url.includes(":2334") || url.includes(":80") || url.includes(":13592") || isLocal(url)) return false;
+      return true;
     };
 
     const publicNodes = [
-      primary,
       {
-        name: "AneFaiz-MilloHost",
+        name: process.env.NODE_1_NAME || "Node 1",
         url: "lava-v4.millohost.my.id:443",
         auth: "https://discord.gg/mjS5J2K3ep",
         secure: true,
       },
       {
-        name: "Kasawa-TH",
-        url: "lava2.kasawa.pro:2334",
+        name: process.env.NODE_2_NAME || "Node 2",
+        url: "lavalink.jirayu.net:443",
+        auth: "youshallnotpass",
+        secure: true,
+      },
+      {
+        name: process.env.NODE_3_NAME || "Node 3",
+        url: "nodelink-02.triniumhost.com:443",
+        auth: "trinium",
+        secure: true,
+      },
+      {
+        name: process.env.NODE_4_NAME || "Node 4",
+        url: "lavalink.jirayu.net:13592",
         auth: "youshallnotpass",
         secure: false,
       },
-      {
-        name: "AjieDev-Backup",
-        url: "lava-v4.ajieblogs.eu.org:443",
-        auth: "https://dsc.gg/ajidevserver",
-        secure: true,
-      },
     ];
+
+    if (process.env.LAVALINK_URL) {
+      publicNodes[0] = {
+        name: process.env.NODE_1_NAME || process.env.LAVALINK_NAME || "Node 1",
+        url: process.env.LAVALINK_URL,
+        auth: process.env.LAVALINK_PASSWORD || "youshallnotpass",
+        secure: isSecureUrl(process.env.LAVALINK_URL),
+      };
+    }
 
     // Deduplicate by URL
     const seen = new Set();

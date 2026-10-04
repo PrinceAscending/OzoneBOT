@@ -5,6 +5,7 @@ const {
 } = require("discord.js");
 const Alarm = require("../../schema/alarm");
 const { errorPayload, warnPayload, successPayload } = require("../../utils/responses");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 // In-memory timers map
 const activeTimers = new Map();
@@ -79,6 +80,7 @@ module.exports = {
   category: "Music",
   description: "Schedule a music alarm that joins VC and plays your chosen track after a delay.",
   cooldown: 5,
+  usage: "<minutes> <song title> | list | cancel",
   inVoiceChannel: true,
   botPerms: ["EmbedLinks", "Connect", "Speak"],
   slashOptions: [
@@ -166,16 +168,7 @@ module.exports = {
     const song = args.slice(1).join(" ").trim();
 
     if (isNaN(minutes) || minutes < 1 || !song) {
-      const usage = new ContainerBuilder().addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `### ⏰ Music Alarm Clock\n` +
-          `Schedule OZONE to enter your voice channel and wake you with a song!\n\n` +
-          `**Usage:** \`${prefix}alarm <minutes> <song title>\`\n` +
-          `**Example:** \`${prefix}alarm 25 lofi beats\n` +
-          `**Manage:** \`${prefix}alarm list\` • \`${prefix}alarm cancel\``
-        )
-      );
-      return message.reply({ components: [usage], flags: MessageFlags.IsComponentsV2 });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     return createAlarm({
@@ -216,7 +209,7 @@ async function createAlarm({ client, guild, channel, member, minutes, song, labe
     .setAccentColor(0x2ECC71)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `### ⏰ Alarm Scheduled!\n` +
+        `### ${client.emoji?.check || ""} Alarm Scheduled!\n` +
         `**Rings In:** \`${minutes} minute${minutes === 1 ? "" : "s"}\` (<t:${timestamp}:R>)\n` +
         `**Song:** *${song}*\n` +
         `**Channel:** <#${voiceChannel.id}>\n` +
@@ -242,7 +235,7 @@ async function listAlarms({ guild, user, reply }) {
     .setAccentColor(0x3498DB)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `### ⏰ Your Active Alarms (${alarms.length})\n${list}`
+        `### ${client.emoji?.info || ""} Your Active Alarms (${alarms.length})\n${list}`
       )
     );
 

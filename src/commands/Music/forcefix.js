@@ -148,65 +148,42 @@ async function updateMessage(msg, client, message, type, error) {
 }
 
 async function fullFix(client, guildId, voiceChannel, message) {
-    const existingPlayer = client.manager.players.get(guildId);
+    client.voiceHealthMonitor?.stopMonitoring(guildId);
+    client.reconnectionGuard?.clear(guildId);
 
+    const existingPlayer = client.manager.players.get(guildId);
     if (existingPlayer) {
         try {
             await safeDestroyPlayer(existingPlayer);
-        } catch {
-        }
+        } catch {}
     }
 
     try {
-        const guild = client.guilds.cache.get(guildId);
-        if (guild?.members?.me?.voice?.channel) {
-            await guild.members.me.voice.setChannel(null);
+        if (client.manager?.shoukaku) {
+            await client.manager.shoukaku.leaveVoiceChannel(guildId).catch(() => {});
         }
-    } catch {
-    }
+    } catch {}
 
-    await delay(3000);
+    await delay(1200);
 
+    // Recreate the player cleanly via Kazagumo
     try {
-        const guild = client.guilds.cache.get(guildId);
-        if (guild && voiceChannel && guild.members.me) {
-            try {
-                await guild.members.me.voice.setChannel(voiceChannel);
-            } catch (voiceError) {
-                console.log(`Could not rejoin voice channel: ${voiceError.message}`);
-            }
-        }
-    } catch (rejoinError) {
-        console.log(`Rejoin error: ${rejoinError.message}`);
-    }
-
-    await delay(2000);
-
-    try {
-        if (client.user) {
-            await client.rest.patch(`/guilds/${guildId}/voice-states/${client.user.id}`, {
-                body: {
-                    channel_id: voiceChannel.id,
-                    suppress: false,
-                    request_to_speak_timestamp: null,
-                },
-            });
-        }
-    } catch {
-    }
-
-    // Recreate the player so the bot isn't left stuck without a session.
-    // The previous queue is intentionally lost (destroyed above).
-    try {
-        await client.manager.createPlayer({
+        const newPlayer = await client.manager.createPlayer({
             guildId,
             voiceId: voiceChannel.id,
             textId: message.channel.id,
             volume: 80,
             deaf: true,
+            shardId: message.guild.shardId,
         });
+
+        if (client.voiceHealthMonitor && newPlayer) {
+            client.voiceHealthMonitor.startMonitoring(newPlayer);
+        }
+
+        return newPlayer;
     } catch (createError) {
-        console.log(`Could not recreate player: ${createError.message}`);
+        console.log(`Could not recreate player in forcefix: ${createError.message}`);
         throw createError;
     }
 }

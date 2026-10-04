@@ -64,7 +64,7 @@ module.exports = {
     async execute(message, args, client) {
         const customizeButton = new ButtonBuilder()
             .setCustomId('open_branding_form')
-            .setLabel('🎨 Customize Bot Profile')
+            .setLabel('Customize Bot Profile')
             .setStyle(ButtonStyle.Primary);
 
         const resetButton = emoji.setBuilderEmoji(

@@ -9,6 +9,7 @@ const {
 } = require("discord.js");
 const db = require("../../schema/noprefix");
 const lodash = require("lodash");
+const { formatCommandHelp } = require("../../utils/commandHelp");
 
 module.exports = {
   name: `nopaccess`,
@@ -16,7 +17,7 @@ module.exports = {
   category: "Owner",
   description: "Add/remove global no-prefix access",
   args: false,
-  usage: "<add/remove> <@user>",
+  usage: "add @user [duration] | remove @user | list | status @user",
   owner: true,
 
   slashOptions: [
@@ -495,31 +496,7 @@ module.exports = {
     }
 
     if (!args[0]) {
-      const helpHeader = new TextDisplayBuilder()
-        .setContent(`\`\`\`<> = Required Argument\nDo NOT type these when using commands!\`\`\``);
-
-      const separator = new SeparatorBuilder();
-
-      const usageDisplay = new TextDisplayBuilder()
-        .setContent(
-          `**Usage:**\n` +
-          `\`${prefix}nop add @user [duration]\` - Give global no-prefix access\n` +
-          `  **Duration:** \`24h/hrs\`, \`10d/day\`, \`2w/week\`, \`1m\` (month), \`1y/yr\`, \`p/perm/permanent\`\n` +
-          `\`${prefix}nop remove @user\` - Remove global no-prefix access\n` +
-          `\`${prefix}nop remove all\` - Remove all users\n` +
-          `\`${prefix}nop list\` - List users with global access\n` +
-          `\`${prefix}nop status @user\` - Check user's no-prefix status`
-        );
-
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(helpHeader)
-        .addSeparatorComponents(separator)
-        .addTextDisplayComponents(usageDisplay);
-
-      return message.channel.send({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2
-      });
+      return message.reply(formatCommandHelp(this, message.author, prefix));
     }
 
     const opt = args[0].toLowerCase();

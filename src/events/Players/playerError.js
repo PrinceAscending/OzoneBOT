@@ -14,7 +14,7 @@ module.exports = {
           .setAccentColor(0xED4245)
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-              `**${client.emoji.cross || "❌"} Playback Error:** Failed to play track. Skipping to next track...`
+              `**${client.emoji.cross || ""} Playback Error:** Failed to play track. Skipping to next track...`
             )
           );
 

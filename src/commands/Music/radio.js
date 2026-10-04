@@ -173,7 +173,7 @@ function browserCard(client, player) {
   return new ContainerBuilder()
     .setAccentColor(0x9FD4FF)
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(
-      `### ${client.emoji.autoplay || "📡"} OZONE Radio — pick a frequency\n` +
+      `### ${client.emoji.autoplay || ""} OZONE Radio — pick a frequency\n` +
       `-# Stations refill the queue forever. Stop with \`${client.prefix}radio off\`.`,
     ))
     .addSeparatorComponents(new SeparatorBuilder())

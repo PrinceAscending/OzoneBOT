@@ -9,8 +9,12 @@ const userPreferencesSchema = new mongoose.Schema({
   },
   theme: {
     type: String,
-    enum: ["neon", "cyber", "amber", "royal", "minimal", "crimson"],
-    default: "neon",
+    enum: ["obsidian", "minimal", "neon", "cyber", "amber", "royal", "crimson"],
+    default: "obsidian",
+  },
+  preferredNode: {
+    type: String,
+    default: "auto",
   },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

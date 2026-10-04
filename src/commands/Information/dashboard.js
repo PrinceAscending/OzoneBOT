@@ -41,11 +41,11 @@ async function replyDashboard(client, target) {
   const description =
     `Join the same voice channel as OZONE, then open the link to control the player in real time:\n` +
     `**${url}**\n\n` +
-    `🔒 You must log in with Discord (OAuth2) — only members in your voice channel get control access.`;
+    `You must log in with Discord (OAuth2) — only members in your voice channel get control access.`;
 
   return target.reply({
     components: [notice({
-      title: "🎛 OZONE Web Dashboard",
+      title: "Dashboard",
       description,
       tone: "info",
     })],
